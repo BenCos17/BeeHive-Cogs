@@ -272,7 +272,7 @@ class Skysearch(commands.Cog):
         if not hasattr(self, '_http_client'):
             self._http_client = aiohttp.ClientSession()
         try:
-            async with self._http_client.get(f'https://api.planespotters.net/pub/photos/reg/{reg}') as response:
+            async with self._http_client.get(f'https://api.planespotters.net/pub/photos/reg/{registration}') as response:
                 if response.status == 200:
                     json_out = await response.json()
                     if 'photos' in json_out and json_out['photos']:
