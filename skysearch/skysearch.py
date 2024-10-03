@@ -61,6 +61,7 @@ class Skysearch(commands.Cog):
             emergency_squawk_codes = ['7500', '7600', '7700']
             hex_id = aircraft_data.get('hex', '')                                      
             image_url, photographer = await self._get_photo_by_hex(hex_id)
+            registration = aircraft_data.get('reg', '')  # Get the registration for image fetching
             link = f"https://globe.airplanes.live/?icao={hex_id}"
             squawk_code = aircraft_data.get('squawk', 'N/A')
 #            if squawk_code == '7400':
@@ -268,9 +269,11 @@ class Skysearch(commands.Cog):
             except discord.errors.Forbidden:
                 pass
 
-    async def _get_photo_by_hex(self, hex_id):
+    async def _get_photo_by_hex(self, hex_id, registration=None):
         if not hasattr(self, '_http_client'):
             self._http_client = aiohttp.ClientSession()
+        
+        # Fetch photo by hex ICAO
         try:
             async with self._http_client.get(f'https://api.planespotters.net/pub/photos/reg/{hex_id}') as response:
                 if response.status == 200:
@@ -279,10 +282,25 @@ class Skysearch(commands.Cog):
                         photo = json_out['photos'][0]
                         url = photo.get('thumbnail_large', {}).get('src', '')
                         photographer = photo.get('photographer', '')
-                        return url, photographer
+                        return url, photographer  # Return photo for hex ICAO
         except (KeyError, IndexError, aiohttp.ClientError):
             pass
-        return None, None
+
+        # Fetch photo by registration if provided
+        if registration:
+            try:
+                async with self._http_client.get(f'https://api.planespotters.net/pub/photos/reg/{registration}') as response:
+                    if response.status == 200:
+                        json_out = await response.json()
+                        if 'photos' in json_out and json_out['photos']:
+                            photo = json_out['photos'][0]
+                            url = photo.get('thumbnail_large', {}).get('src', '')
+                            photographer = photo.get('photographer', '')
+                            return url, photographer  # Return photo for registration
+            except (KeyError, IndexError, aiohttp.ClientError):
+                pass
+
+        return None, None  # Return None if no photo found for both
 
     @commands.guild_only()
     @commands.group(name='skysearch', help='Core menu for the cog', invoke_without_command=True)
