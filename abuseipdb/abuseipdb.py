@@ -3,13 +3,15 @@ from redbot.core import commands, Config #type: ignore
 import aiohttp #type: ignore
 import asyncio
 import ipaddress
+from datetime import datetime, timedelta
 
 class AbuseIPDB(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=9876543210)
         default_guild = {
-            "api_key": None
+            "api_key": None,
+            "reports": {}
         }
         self.config.register_guild(**default_guild)
 
@@ -89,7 +91,7 @@ class AbuseIPDB(commands.Cog):
             color=0xfffffe
         )
         message = await ctx.send(embed=embed)
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
 
         ip = await get_user_input("Please respond in chat with the IPv4 or IPv6 that you'd like to create a report for.")
         if ip is None:
@@ -160,6 +162,15 @@ class AbuseIPDB(commands.Cog):
                             embed.add_field(name="IP address reported", value=ip_address, inline=True)
                             embed.add_field(name="Updated abuse score", value=abuse_confidence_score, inline=True)
                             await ctx.send(embed=embed)
+
+                            # Track the report
+                            async with self.config.guild(ctx.guild).reports() as reports:
+                                user_id = str(ctx.author.id)
+                                now = datetime.utcnow().timestamp()
+                                if user_id not in reports:
+                                    reports[user_id] = []
+                                reports[user_id].append(now)
+
                         else:
                             error_detail = response_data["errors"][0]["detail"]
                             embed = discord.Embed(
@@ -182,6 +193,40 @@ class AbuseIPDB(commands.Cog):
                         color=0xff4545
                     )
                     await ctx.send(embed=embed)
+
+    @abuseipdb.command(name="leaderboard", description="Show the top 10 reporters over the last 30 days.")
+    async def leaderboard(self, ctx):
+        """Show the top 10 reporters over the last 30 days"""
+        reports = await self.config.guild(ctx.guild).reports()
+        now = datetime.utcnow().timestamp()
+        thirty_days_ago = now - timedelta(days=30).total_seconds()
+
+        # Count reports in the last 30 days
+        report_counts = {}
+        for user_id, timestamps in reports.items():
+            count = sum(1 for timestamp in timestamps if timestamp >= thirty_days_ago)
+            if count > 0:
+                report_counts[user_id] = count
+
+        # Sort and get top 10
+        top_reporters = sorted(report_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        if not top_reporters:
+            await ctx.send("No reports have been made in the last 30 days.")
+            return
+
+        leaderboard_embed = discord.Embed(
+            title="Top 10 IP reporters",
+            color=0xfffffe
+        )
+
+        for rank, (user_id, count) in enumerate(top_reporters, start=1):
+            user = self.bot.get_user(int(user_id))
+            username = f"<@{user_id}>" if user else "Unknown User"
+            report_word = "report" if count == 1 else "reports"
+            leaderboard_embed.add_field(name=f"Rank {rank}", value=f"{username}, with {count} {report_word}", inline=True)
+
+        await ctx.send(embed=leaderboard_embed)
 
     @abuseipdb.command(name="list", description="Check reports for an IP address against AbuseIPDB.")
     async def list(self, ctx, ip: str):
@@ -334,7 +379,13 @@ class AbuseIPDB(commands.Cog):
                     embed.add_field(name="ISP", value=report['isp'], inline=True)
                     embed.add_field(name="Domain", value=report['domain'], inline=True)
                     embed.add_field(name="Total reports", value=report['totalReports'], inline=True)
-                    embed.add_field(name="Last reported", value=f"**<t:{int(discord.utils.parse_time(report['lastReportedAt']).timestamp())}:R>**", inline=True)
+                    
+                    last_reported_at = report.get('lastReportedAt')
+                    if last_reported_at:
+                        embed.add_field(name="Last reported", value=f"**<t:{int(discord.utils.parse_time(last_reported_at).timestamp())}:R>**", inline=True)
+                    else:
+                        embed.add_field(name="Last reported", value="No reports available", inline=True)
+                    
                     if report['reports']:
                         for i, rep in enumerate(report['reports'][:5]):
                             embed.add_field(

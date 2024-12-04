@@ -16,8 +16,8 @@ class StatusRotator(commands.Cog):
         )
         self.status_task = self.bot.loop.create_task(self.change_status())
         self.statuses = [
-            lambda: f"{len(self.bot.guilds)} server{'s' if len(self.bot.guilds) == 1 else 's'} | {len(self.bot.users):,} user{'s' if len(self.bot.users) == 1 else 's'}" + (" | beehive.systems" if self.bot.user.id == 1152805502116429929 else ""),
-            lambda: f"Watching over {len(self.bot.guilds)} server{'s' if len(self.bot.guilds) != 1 else ''}",
+            lambda: f"{len(self.bot.guilds)} server{'s' if len(self.bot.guilds) != 1 else ''} | {len(self.bot.users):,} user{'s' if len(self.bot.users) != 1 else ''}" + (" | beehive.systems" if self.bot.user.id == 1152805502116429929 else ""),
+            lambda: f"On guard in {len(self.bot.guilds)} server{'s' if len(self.bot.guilds) != 1 else ''}",
             lambda: f"Moderating {len(self.bot.users):,} user{'s' if len(self.bot.users) != 1 else ''}",
             self.get_message_count_status,
             self.get_hyperlink_count_status,
@@ -51,11 +51,11 @@ class StatusRotator(commands.Cog):
                 presence_state = self.presence_states[self.current_presence_index]
                 await self.bot.change_presence(activity=activity, status=presence_state)
                 self.current_presence_index = (self.current_presence_index + 1) % len(self.presence_states)
-                await asyncio.sleep(240)  # Change status every 240 seconds
+                await asyncio.sleep(300)  # Change status every 300 seconds
 
     async def fetch_blocked_domains_count(self):
         url = "https://www.beehive.systems/hubfs/blocklist/blocklist.json"
-        headers = {"User-Agent": "Mozilla/5.0"}
+        headers = {"User-Agent": "statusrotator (github.com/beehivecybersecurity/beehive-cogs)"}
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.get(url, headers=headers) as response:
@@ -84,11 +84,11 @@ class StatusRotator(commands.Cog):
 
     def get_message_count_status(self):
         now = datetime.utcnow()
-        one_minute_ago = now - timedelta(minutes=1)
-        self.message_log = deque([timestamp for timestamp in self.message_log if timestamp > one_minute_ago])
+        one_day_ago = now - timedelta(days=1)
+        self.message_log = deque([timestamp for timestamp in self.message_log if timestamp > one_day_ago])
         message_count = len(self.message_log)
         message_text = "message" if message_count == 1 else "messages"
-        return f"Analyzing {message_count} {message_text} every minute"
+        return f"Screened {message_count} {message_text} in the last 24 hours"
 
     def get_uptime_status(self):
         now = datetime.utcnow()
@@ -104,11 +104,11 @@ class StatusRotator(commands.Cog):
 
     def get_hyperlink_count_status(self):
         now = datetime.utcnow()
-        five_minutes_ago = now - timedelta(minutes=5)
-        self.hyperlink_log = deque([timestamp for timestamp in self.hyperlink_log if timestamp > five_minutes_ago])
+        one_day_ago = now - timedelta(days=1)
+        self.hyperlink_log = deque([timestamp for timestamp in self.hyperlink_log if timestamp > one_day_ago])
         hyperlink_count = len(self.hyperlink_log)
         hyperlink_text = "link" if hyperlink_count == 1 else "links"
-        return f"Scanned {hyperlink_count} {hyperlink_text} in the last 5 minutes"
+        return f"Scanned {hyperlink_count} {hyperlink_text} in the last 24 hours"
 
     @commands.group()
     async def statusrotator(self, ctx):

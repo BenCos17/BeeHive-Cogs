@@ -1130,8 +1130,8 @@ class Cloudflare(commands.Cog):
         Query WHOIS information for a given domain.
         """
         # Define registrar lists
-        abuse_friendly_registrars = {"NameCheap, Inc.", "Spaceship"}
-        undetermined_registrars = {"", ""}
+        abuse_friendly_registrars = {"NameCheap, Inc.", "Spaceship", "Namecheap"}
+        undetermined_registrars = {"Dynadot Inc", ""}
         not_receptive_registrars = {"", ""}
 
         api_tokens = await self.bot.get_shared_api_tokens("cloudflare")
@@ -1194,54 +1194,54 @@ class Cloudflare(commands.Cog):
                 return page
 
             if "registrar" in whois_info:
-                registrar_value = f"**`{whois_info['registrar']}`**"
+                registrar_value = f"`{whois_info['registrar']}`"
                 page = add_field_to_page(page, "Registrar", registrar_value)
 
                 # Determine abuse report status
                 registrar_name = whois_info['registrar']
                 if registrar_name in abuse_friendly_registrars:
-                    abuse_contact_email = whois_info.get('abuse_contact_email', 'N/A')
+                    abuse_contact_email = whois_info.get('registrar_email', 'N/A')
                     abuse_status = f"This registrar is known receptive and helpful to abuse reports. You can report abuse to: {abuse_contact_email}"
                 elif registrar_name in undetermined_registrars:
                     abuse_status = "We don't have enough history with this registrar to determine how helpful they are with abuse reports"
                 elif registrar_name in not_receptive_registrars:
                     abuse_status = "This registrar is known to refuse, ignore, or otherwise fail to engage with abuse reports"
                 else:
-                    abuse_status = "Unknown"
+                    abuse_status = "We don't have enough history with this registrar to determine how helpful they are with abuse reports"
 
-                page = add_field_to_page(page, "Abuse Report Status", f"**`{abuse_status}`**")
+                page = add_field_to_page(page, "Abuse Report Status", f"`{abuse_status}`")
 
             # Add other fields as before
             if "administrative_city" in whois_info:
                 administrative_city_value = f"**`{whois_info['administrative_city']}`**"
-                page = add_field_to_page(page, "Administrative City", administrative_city_value)
+                page = add_field_to_page(page, "Admin city", administrative_city_value)
             if "administrative_country" in whois_info:
                 administrative_country_value = f"**`{whois_info['administrative_country']}`**"
-                page = add_field_to_page(page, "Administrative Country", administrative_country_value)
+                page = add_field_to_page(page, "Admin country", administrative_country_value)
             if "administrative_email" in whois_info:
                 administrative_email_value = f"**`{whois_info['administrative_email']}`**"
-                page = add_field_to_page(page, "Administrative Email", administrative_email_value)
+                page = add_field_to_page(page, "Admin email", administrative_email_value)
             if "administrative_fax" in whois_info:
                 administrative_fax_value = f"**`{whois_info['administrative_fax']}`**"
-                page = add_field_to_page(page, "Administrative Fax", administrative_fax_value)
+                page = add_field_to_page(page, "Admin fax", administrative_fax_value)
             if "administrative_fax_ext" in whois_info:
                 administrative_fax_ext_value = f"**`{whois_info['administrative_fax_ext']}`**"
-                page = add_field_to_page(page, "Administrative Fax Ext", administrative_fax_ext_value)
+                page = add_field_to_page(page, "Admin fax ext", administrative_fax_ext_value)
             if "administrative_id" in whois_info:
                 administrative_id_value = f"**`{whois_info['administrative_id']}`**"
-                page = add_field_to_page(page, "Administrative ID", administrative_id_value)
+                page = add_field_to_page(page, "Admin ID", administrative_id_value)
             if "administrative_name" in whois_info:
                 administrative_name_value = f"**`{whois_info['administrative_name']}`**"
-                page = add_field_to_page(page, "Administrative Name", administrative_name_value)
+                page = add_field_to_page(page, "Admin name", administrative_name_value)
             if "administrative_org" in whois_info:
                 administrative_org_value = f"**`{whois_info['administrative_org']}`**"
-                page = add_field_to_page(page, "Administrative Org", administrative_org_value)
+                page = add_field_to_page(page, "Admin org", administrative_org_value)
             if "administrative_phone" in whois_info:
                 administrative_phone_value = f"**`{whois_info['administrative_phone']}`**"
-                page = add_field_to_page(page, "Administrative Phone", administrative_phone_value)
+                page = add_field_to_page(page, "Admin phone", administrative_phone_value)
             if "administrative_phone_ext" in whois_info:
                 administrative_phone_ext_value = f"**`{whois_info['administrative_phone_ext']}`**"
-                page = add_field_to_page(page, "Administrative Phone Ext", administrative_phone_ext_value)
+                page = add_field_to_page(page, "Admin phone ext", administrative_phone_ext_value)
             if "administrative_postal_code" in whois_info:
                 administrative_postal_code_value = f"**`{whois_info['administrative_postal_code']}`**"
                 page = add_field_to_page(page, "Administrative Postal Code", administrative_postal_code_value)
@@ -1727,13 +1727,15 @@ class Cloudflare(commands.Cog):
                 data = await response.json()
                 if data["success"] and data["result"]:
                     result = data["result"][0]
-                    embed = discord.Embed(title=f"Domain history for {domain}", color=0x2BBD8E)
-                    
-                    if "domain" in result:
-                        embed.add_field(name="Domain", value=f"**`{result['domain']}`**", inline=False)
-                    if "categorizations" in result:
-                        categorizations = result["categorizations"]
-                        for categorization in categorizations:
+                    categorizations = result.get("categorizations", [])
+                    pages = [categorizations[i:i + 5] for i in range(0, len(categorizations), 5)]
+                    current_page = 0
+
+                    def create_embed(page):
+                        embed = discord.Embed(title=f"Domain history for {domain}", color=0x2BBD8E)
+                        if "domain" in result:
+                            embed.add_field(name="Domain", value=f"**`{result['domain']}`**", inline=False)
+                        for categorization in page:
                             categories = ", ".join([f"**`{category['name']}`**" for category in categorization["categories"]])
                             embed.add_field(name="Categories", value=categories, inline=True)
                             if "start" in categorization:
@@ -1742,8 +1744,44 @@ class Cloudflare(commands.Cog):
                             if "end" in categorization:
                                 end_timestamp = discord.utils.format_dt(discord.utils.parse_time(categorization['end']), style='R')
                                 embed.add_field(name="Ending", value=f"**{end_timestamp}**", inline=True)
-                    embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Green/globe.png")
-                    await ctx.send(embed=embed)
+                        embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Green/globe.png")
+                        return embed
+
+                    message = await ctx.send(embed=create_embed(pages[current_page]))
+
+                    if len(pages) > 1:
+                        await message.add_reaction("◀️")
+                        await message.add_reaction("❌")
+                        await message.add_reaction("▶️")
+
+                        def check(reaction, user):
+                            return user == ctx.author and str(reaction.emoji) in ["◀️", "❌", "▶️"] and reaction.message.id == message.id
+
+                        while True:
+                            try:
+                                reaction, user = await self.bot.wait_for("reaction_add", timeout=30.0, check=check)
+
+                                if str(reaction.emoji) == "▶️" and current_page < len(pages) - 1:
+                                    current_page += 1
+                                    await message.edit(embed=create_embed(pages[current_page]))
+                                    await message.remove_reaction(reaction, user)
+
+                                elif str(reaction.emoji) == "◀️" and current_page > 0:
+                                    current_page -= 1
+                                    await message.edit(embed=create_embed(pages[current_page]))
+                                    await message.remove_reaction(reaction, user)
+
+                                elif str(reaction.emoji) == "❌":
+                                    await message.delete()
+                                    break
+
+                            except asyncio.TimeoutError:
+                                break
+
+                        try:
+                            await message.clear_reactions()
+                        except discord.Forbidden:
+                            pass
                 else:
                     embed = discord.Embed(title="No data available", description="There is no domain history available for this domain. Please try this query again later, as results are subject to update.", color=0xff4545)
                     await ctx.send(embed=embed)

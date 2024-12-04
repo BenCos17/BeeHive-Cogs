@@ -254,7 +254,13 @@ class TikTokLiveCog(commands.Cog):
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(url, download=True)
                 if 'formats' not in info_dict:
-                    raise ValueError("No formats found. The video may contain graphic material and require login to view.")
+                    embed = discord.Embed(
+                        title="Warning",
+                        description="This video may contain potentially sensitive or graphic content, and TikTok has restricted access to it behind a login. Unfortunately, the bot cannot log in to access such content.",
+                        color=discord.Color.orange()
+                    )
+                    await ctx.send(embed=embed)
+                    return
                 video_title = info_dict.get('title', 'video')
                 video_uploader = info_dict.get('uploader', 'unknown')
                 video_duration = info_dict.get('duration', 0)
@@ -282,7 +288,15 @@ class TikTokLiveCog(commands.Cog):
         except ValueError as ve:
             await ctx.send(f"Failed to download video: {ve}")
         except Exception as e:
-            await ctx.send(f"Failed to download video: {e}")
+            if "No video formats found" in str(e):
+                embed = discord.Embed(
+                    title="Warning",
+                    description="This video may contain potentially sensitive or graphic content, and TikTok has restricted access to it behind a login. Unfortunately, the bot cannot log in to access such content.",
+                    color=discord.Color.orange()
+                )
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send(f"Failed to download video: {e}")
 
     @tiktokliveset.command()
     async def auto(self, ctx):
@@ -307,9 +321,9 @@ class TikTokLiveCog(commands.Cog):
             if auto_download:
                 # Check for complete TikTok URLs
                 urls = [word for word in message.content.split() if word.startswith("https://www.tiktok.com/") or word.startswith("https://vt.tiktok.com/") or word.startswith("https://vm.tiktok.com/")]
-                for url in urls:
-                    await self.download_video(message.channel, url)
                 if urls:
+                    # Only process the first TikTok URL found
+                    await self.download_video(message.channel, urls[0])
                     await message.delete()
         except Exception as e:
             logging.error(f"Error in on_message: {e}")
