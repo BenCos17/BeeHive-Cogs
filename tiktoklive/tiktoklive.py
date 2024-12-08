@@ -58,6 +58,7 @@ class TikTokLiveCog(commands.Cog):
             client.logger.error(f"Error in on_connect: {e}")
 
     async def check_loop(self, guild_id, client, user):
+        message_id = None  # Store the message ID of the live notification
         while True:
             try:
                 is_live = await client.is_live()
@@ -66,9 +67,28 @@ class TikTokLiveCog(commands.Cog):
                     client.logger.info("Requested client is live!")
                     self.live_status[user] = True  # Update live status
                     await client.connect()
+                    
+                    # Send a message when the stream goes live
+                    channel_id = await self.config.guild_from_id(guild_id).alert_channel()
+                    if channel_id:
+                        channel = self.bot.get_channel(channel_id)
+                        if channel:
+                            message = await channel.send(f"@{user} is now live!")  # Store the message
+                            message_id = message.id  # Save the message ID
+
                 elif not is_live and previous_status:
                     client.logger.info("Client is currently not live. Checking again in 90 seconds.")
                     self.live_status[user] = False  # Update live status
+                    
+                    # Delete the message if the stream goes down
+                    if message_id:
+                        try:
+                            message = await channel.fetch_message(message_id)
+                            await message.delete()  # Delete the message
+                        except discord.NotFound:
+                            pass  # Message already deleted
+                        message_id = None  # Reset message ID
+
                 elif is_live and previous_status:
                     client.logger.info("Client is still live. Checking again in 90 seconds.")
                 await asyncio.sleep(90)  # Check again in 90 seconds
