@@ -145,13 +145,11 @@ class ReportsPro(commands.Cog):
                     report_id = ''.join(random.choices(string.ascii_letters + string.digits, k=4))
                 
                 embed = discord.Embed(
-                    title="Report Created",
-                    color=discord.Color.from_rgb(43, 189, 142),
+                    title="Report created",
+                    color=0xfffffe,
                     description=(
                         f"You have reported {self.member.mention} for **{selected_reason}**.\n\n"
-                        f"Your report ID is `{report_id}`. We'll use this ID for any updates on your report.\n\n"
-                        "The bot will try to automatically gather chat evidence from recent conversations "
-                        "to help with the investigation. Your messages will be included in this."
+                        f"Your report ID is `{report_id}`. We'll use this ID for any updates on your report.\n\nPlease ensure your Direct Messages are open if you'd like updates on this report."
                     )
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -197,8 +195,8 @@ class ReportsPro(commands.Cog):
                 # Send the report to the reports channel
                 if self.reports_channel:
                     report_message = discord.Embed(
-                        title="A New Report Needs Attention",
-                        color=discord.Color.from_rgb(255, 69, 69)
+                        title="A new report was filed",
+                        color=0xff4545
                     )
                     report_message.add_field(name="Report ID", value=f"```{report_id}```", inline=False)
                     report_message.add_field(name="Offender", value=f"{self.member.mention}", inline=True)
@@ -212,7 +210,7 @@ class ReportsPro(commands.Cog):
                     # Add a summary of existing report counts by reason
                     if reason_counts:
                         summary = "\n".join(f"**{reason}** x**{count}**" for reason, count in reason_counts.items())
-                        report_message.add_field(name="Previous Reports", value=summary, inline=False)
+                        report_message.add_field(name="Previous reports", value=summary, inline=False)
 
                     mention_role_id = await self.config.guild(self.ctx.guild).mention_role()
                     mention_role = ctx.guild.get_role(mention_role_id)
@@ -225,7 +223,7 @@ class ReportsPro(commands.Cog):
                             os.remove(chat_history)  # Clean up the file after sending
                     except discord.Forbidden:
                         embed = discord.Embed(
-                            title="Permission Error",
+                            title="Permission error",
                             description="I can't send messages in the reports channel. Please check my permissions.",
                             color=discord.Color.red()
                         )
@@ -621,16 +619,16 @@ class ReportsPro(commands.Cog):
                         await self.reporter.send(embed=embed)
                     except discord.Forbidden:
                         embed = discord.Embed(
-                            title="DM Error",
-                            description="I couldn't send a DM to the reporter.",
+                            title="Couldn't send report update",
+                            description="I couldn't send a DM to the reporter to update them on this report, you may need to reach out manually to the user if you're inclined.",
                             color=discord.Color.red()
                         )
                         await self.ctx.send(embed=embed)
 
                 embed = discord.Embed(
-                    title="Report Handled",
-                    description=f"Report {self.report_id} has been handled. Action: {action}.",
-                    color=discord.Color.green()
+                    title="Report handled",
+                    description=f"Report {self.report_id} has been handled.\nAction: {action}.",
+                    color=0x2bbd8e
                 )
                 await self.ctx.send(embed=embed)
                 self.stop()
