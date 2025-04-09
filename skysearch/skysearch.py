@@ -25,7 +25,7 @@ class Skysearch(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=492089091320446976)  
-        self.config.register_global(api_key=None)  # Register the API key in the config
+        self.config.register_global(airplanesliveapi=None)  # Change the API key name here
         self.api_url = "https://api.airplanes.live/v2"
         self.max_requests_per_user = 10
         self.EMBED_COLOR = discord.Color(0xfffffe)
@@ -47,7 +47,7 @@ class Skysearch(commands.Cog):
     async def _get_headers(self):
         """Return headers with API key for requests, if available."""
         headers = {}
-        api_key = await self.config.api_key()
+        api_key = await self.config.airplanesliveapi()  # Change the API key retrieval here
         if api_key:
             headers['Authorization'] = f'Bearer {api_key}'
         return headers
@@ -1372,5 +1372,5 @@ class Skysearch(commands.Cog):
     @commands.command(name='setapikey', help='Set the API key for Skysearch.')
     async def set_api_key(self, ctx, api_key: str):
         """Command to set the API key."""
-        await self.config.api_key.set(api_key)
+        await self.config.airplanesliveapi.set(api_key)  # Change the API key setting here
         await ctx.send("API key has been set successfully.")
