@@ -48,7 +48,6 @@ class Invites(commands.Cog):
                         await self.update_invites(guild, inviter)
                         await self.announce_invite(guild, member, inviter)
                         await self.check_rewards(guild, inviter)
-                        await self.check_milestones(guild, inviter)
                     break
 
             # Update member growth
@@ -100,32 +99,18 @@ class Invites(commands.Cog):
                             description=f"Congratulations! You've been awarded the {role.name} role for inviting {count} members!",
                             color=discord.Color.from_str("#2bbd8e")
                         )
-                        await inviter.send(embed=embed)
+                        await self.announce_reward(guild, inviter, embed)
         except Exception as e:
             print(f"Failed to check rewards for inviter {inviter.id} in guild {guild.id}: {e}")
 
-    async def check_milestones(self, guild, inviter):
+    async def announce_reward(self, guild, inviter, embed):
         try:
-            invites = await self.config.guild(guild).invites()
-            invite_count = invites.get(str(inviter.id), 0)
-
-            if invite_count in self.milestones:
-                embed = discord.Embed(
-                    title="Milestone reached",
-                    description=(
-                        f"Congratulations! You've reached {invite_count} invites!\n\n"
-                        f"This is a significant achievement and shows your dedication to growing our community. "
-                        f"Keep up the great work and continue to invite more members to join us!"
-                    ),
-                    color=discord.Color.from_str("#2bbd8e")
-                )
-                embed.add_field(name="Server", value=guild.name, inline=False)
-                embed.add_field(name="Inviter", value=inviter.mention, inline=False)
-                embed.add_field(name="Next Milestone", value=f"{invite_count + 10} invites", inline=False)
-                embed.set_footer(text="Thank you for your contributions!")
-                await inviter.send(embed=embed)
+            channel_id = await self.config.guild(guild).announcement_channel()
+            announcement_channel = guild.get_channel(channel_id) if channel_id else None
+            if announcement_channel:
+                await announcement_channel.send(embed=embed)
         except Exception as e:
-            print(f"Failed to check milestones for inviter {inviter.id} in guild {guild.id}: {e}")
+            print(f"Failed to announce reward in guild {guild.id}: {e}")
 
     @commands.guild_only()
     @commands.admin()
@@ -135,14 +120,30 @@ class Invites(commands.Cog):
         pass
 
     @invites.command()
-    async def announcechannel(self, ctx, channel: discord.TextChannel):
-        """Set the announcement channel for invites."""
-        await self.config.guild(ctx.guild).announcement_channel.set(channel.id)
-        embed = discord.Embed(
-            title="Announcement Channel Set",
-            description=f"Announcement channel set to {channel.mention}",
-            color=discord.Color.from_str("#2bbd8e")
-        )
+    async def announcechannel(self, ctx, channel: str):
+        """Set the announcement channel for invites. Use 'none' to clear the channel."""
+        if channel.lower() == "none":
+            await self.config.guild(ctx.guild).announcement_channel.clear()
+            embed = discord.Embed(
+                title="Announcement Channel Cleared",
+                description="The announcement channel has been cleared.",
+                color=discord.Color.from_str("#ff4545")
+            )
+        else:
+            channel_obj = discord.utils.get(ctx.guild.text_channels, mention=channel) or discord.utils.get(ctx.guild.text_channels, name=channel)
+            if channel_obj:
+                await self.config.guild(ctx.guild).announcement_channel.set(channel_obj.id)
+                embed = discord.Embed(
+                    title="Announcement Channel Set",
+                    description=f"Announcement channel set to {channel_obj.mention}",
+                    color=discord.Color.from_str("#2bbd8e")
+                )
+            else:
+                embed = discord.Embed(
+                    title="Channel Not Found",
+                    description="The specified channel could not be found.",
+                    color=discord.Color.from_str("#ff4545")
+                )
         await ctx.send(embed=embed)
 
     @invites.command()
@@ -205,8 +206,8 @@ class Invites(commands.Cog):
             await ctx.send(embed=embed)
 
     @invites.command()
-    async def growthchart(self, ctx):
-        """Show the overall member growth of the server as a graph."""
+    async def chart(self, ctx):
+        """graph the server's growth"""
         growth = await self.config.guild(ctx.guild).member_growth()
         if not growth:
             await ctx.send("No member growth data available.")
@@ -240,9 +241,9 @@ class Invites(commands.Cog):
 
         plt.figure(figsize=(10, 5))
         plt.plot_date([datetime.strptime(date, "%Y-%m-%d") for date in dates], member_counts, marker='o', linestyle='-')
-        plt.title('Server Member Growth')
+        plt.title('Server member growth')
         plt.xlabel('Date')
-        plt.ylabel('Member Count')
+        plt.ylabel('Member count')
         
         # Display fewer date labels to reduce cramping
         max_labels = 10
@@ -277,7 +278,7 @@ class Invites(commands.Cog):
                 title="Invite stats",
                 color=discord.Color.from_str("#2bbd8e")
             )
-            embed.add_field(name="Invite Code", value=f"**`{invite.code}`**", inline=True)
+            embed.add_field(name="Invite code", value=f"**`{invite.code}`**", inline=True)
             embed.add_field(name="Inviter", value=f"{inviter.mention if inviter else 'Unknown'}", inline=True)
             embed.add_field(name="Uses", value=f"**`{uses}`**", inline=True)
             pages.append(embed)

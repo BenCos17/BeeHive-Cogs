@@ -64,44 +64,39 @@ class Skysearch(commands.Cog):
             registration = aircraft_data.get('reg', '')  # Get the registration for image fetching
             link = f"https://globe.airplanes.live/?icao={hex_id}"
             squawk_code = aircraft_data.get('squawk', 'N/A')
-#            if squawk_code == '7400':
-#                embed = discord.Embed(title='Aircraft information', color=discord.Colour(0xff9145))
-#                emergency_status = ":warning: **UAV has lost radio contact**"
-#                embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Orange/alert-circle-outline.png")
+            description = f"{aircraft_data.get('desc', 'N/A')}"
+            if aircraft_data.get('year', None) is not None:
+                description += f" ({aircraft_data.get('year')})"
             if squawk_code == '7500':
-                embed = discord.Embed(title='Aircraft alert', description=f"# {aircraft_data.get('desc', 'N/A')}", color=discord.Colour(0xff4545))
-                emergency_status = ":rotating_light: Aircraft has been **hijacked**"
-                embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Red/alert-circle.png")
+                embed = discord.Embed(title=description, color=0xff4545)
+                emergency_status = "Aircraft reports it's been hijacked"
             elif squawk_code == '7600':
-                embed = discord.Embed(title='Aircraft alert', description=f"# {aircraft_data.get('desc', 'N/A')}", color=discord.Colour(0xff4545))
-                emergency_status = ":signal_strength: Aircraft has **lost radio contact**"
-                embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Red/alert-circle.png")
+                embed = discord.Embed(title=description, color=0xff4545)
+                emergency_status = "Aircraft has lost radio contact"
             elif squawk_code == '7700':
-                embed = discord.Embed(title='Aircraft alert', description=f"# {aircraft_data.get('desc', 'N/A')}", color=discord.Colour(0xff4545))
-                emergency_status = ":warning: Aircraft has **declared a general emergency**"
-                embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Red/alert-circle.png")
+                embed = discord.Embed(title=description, color=0xff4545)
+                emergency_status = "Aircraft has declared a general emergency"
             else:
-                embed = discord.Embed(title='Aircraft information', description=f"# {aircraft_data.get('desc', 'N/A')}", color=discord.Colour(0xfffffe))
-                emergency_status = ":white_check_mark: Aircraft reports **normal** conditions"
-                embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/White/airplane.png")
+                embed = discord.Embed(title=description, color=0xfffffe)
+                emergency_status = "Aircraft reports normal conditions"
             callsign = aircraft_data.get('flight', 'N/A').strip()
             if not callsign or callsign == 'N/A':
                 callsign = 'BLOCKED'
-            embed.add_field(name="Callsign", value=f"`{callsign}`", inline=True)
+            embed.add_field(name="Callsign", value=f"{callsign}", inline=True)
             registration = aircraft_data.get('reg', None)
             if registration is not None:
                 registration = registration.upper()
-                embed.add_field(name="Registration", value=f"`{registration}`", inline=True)
+                embed.add_field(name="Registration", value=f"{registration}", inline=True)
             icao = aircraft_data.get('hex', 'N/A').upper()
-            embed.add_field(name="ICAO", value=f"`{icao}`", inline=True)
+            embed.add_field(name="ICAO", value=f"{icao}", inline=True)
             altitude = aircraft_data.get('alt_baro', 'N/A')
             if altitude == 'ground':
-                embed.add_field(name="Status", value="**On ground**", inline=True)
+                embed.add_field(name="Status", value="On ground", inline=True)
             elif altitude != 'N/A':
                 if isinstance(altitude, int):
                     altitude = "{:,}".format(altitude)
                 altitude_feet = f"{altitude} ft"
-                embed.add_field(name="Altitude", value=f"`{altitude_feet}`", inline=True)
+                embed.add_field(name="Altitude", value=f"{altitude_feet}", inline=True)
             heading = aircraft_data.get('true_heading', None)
             if heading is not None:
                 if 0 <= heading < 45:
@@ -120,7 +115,7 @@ class Skysearch(commands.Cog):
                     emoji = ":arrow_upper_left:"
                 else:
                     emoji = ":arrow_up:"
-                embed.add_field(name="Heading", value=f"{emoji} **{heading}°**", inline=True)
+                embed.add_field(name="Heading", value=f"{emoji} {heading}°", inline=True)
             lat = aircraft_data.get('lat', 'N/A')
             lon = aircraft_data.get('lon', 'N/A')
             if lat != 'N/A':
@@ -132,75 +127,74 @@ class Skysearch(commands.Cog):
                 lon_dir = "E" if lon >= 0 else "W"
                 lon = f"{abs(lon)}{lon_dir}"
             if lat != 'N/A' and lon != 'N/A':
-                embed.add_field(name="Position", value=f"`{lat}, {lon}`", inline=True)
-            embed.add_field(name="Squawk", value=f"**{aircraft_data.get('squawk', 'BLOCKED')}**", inline=True)
-            if aircraft_data.get('year', None) is not None:
-                embed.add_field(name="Built in", value=f"{aircraft_data.get('year')}", inline=True)
+                embed.add_field(name="Position", value=f"- {lat}\n- {lon}", inline=True)
+            embed.add_field(name="Squawk", value=f"{aircraft_data.get('squawk', 'BLOCKED')}", inline=True)
             
             aircraft_model = aircraft_data.get('t', None)
             if aircraft_model is not None:
                 embed.add_field(name="Model", value=f"{aircraft_model}", inline=True)
             ground_speed_knots = aircraft_data.get('gs', 'N/A')
             if ground_speed_knots != 'N/A':
-                ground_speed_mph = round(float(ground_speed_knots) * 1.15078)  # Convert knots to mph
-                embed.add_field(name="Speed", value=f"`{ground_speed_mph} mph`", inline=True)
+                ground_speed_mph = round(float(ground_speed_knots) * 1.15078)
+                embed.add_field(name="Speed", value=f"{ground_speed_mph} mph", inline=True)
             category_code_to_label = {
-                "A0": "`No info available`",
-                "A1": "`Light (< 15500 lbs)`",
-                "A2": "`Small (15500 to 75000 lbs)`",
-                "A3": "`Large (75000 to 300000 lbs)`",
-                "A4": "`High vortex large`",
-                "A5": "`Heavy (> 300000 lbs)`",
-                "A6": "`High performance (> 5g acceleration and 400 kts)`",
-                "A7": "`Rotorcraft`",
-                "B0": "`No info available`",
-                "B1": "`Glider / sailplane`",
-                "B2": "`Lighter-than-air`",
-                "B3": "`Parachutist / skydiver`",
-                "B4": "`Ultralight / hang-glider / paraglider`",
-                "B5": "`Reserved`",
-                "B6": "`UAV`",
-                "B7": "`Space / trans-atmospheric vehicle`",
-                "C0": "`No info available`",
-                "C1": "`Emergency vehicle`",
-                "C2": "`Service vehicle`",
-                "C3": "`Point obstacle`",
-                "C4": "`Cluster obstacle`",
-                "C5": "`Line obstacle`",
-                "C6": "`Reserved`",
-                "C7": "`Reserved`"
+                "A0": "No info available",
+                "A1": "Light aircraft",
+                "A2": "Small aircraft",
+                "A3": "Large aircraft",
+                "A4": "High vortex large aircraft",
+                "A5": "Heavy aircraft",
+                "A6": "High performance aircraft",
+                "A7": "Rotorcraft",
+                "B0": "No info available",
+                "B1": "Glider / sailplane",
+                "B2": "Lighter-than-air",
+                "B3": "Parachutist / skydiver",
+                "B4": "Ultralight / hang-glider / paraglider",
+                "B5": "Reserved",
+                "B6": "UAV",
+                "B7": "Space / trans-atmospheric vehicle",
+                "C0": "No info available",
+                "C1": "Emergency vehicle",
+                "C2": "Service vehicle",
+                "C3": "Point obstacle",
+                "C4": "Cluster obstacle",
+                "C5": "Line obstacle",
+                "C6": "Reserved",
+                "C7": "Reserved"
             }
             category = aircraft_data.get('category', None)
             if category is not None:
                 category_label = category_code_to_label.get(category, "Unknown category")
-                embed.add_field(name="Category", value=f"{category_label}", inline=False)
+                embed.add_field(name="Category", value=f"{category_label}", inline=True)
 
             operator = aircraft_data.get('ownOp', None)
             if operator is not None:
                 operator_encoded = quote_plus(operator)
-                embed.add_field(name="Operated by", value=f"[{operator}](https://www.google.com/search?q={operator_encoded})", inline=False)
+                embed.add_field(name="Operated by", value=f"[{operator}](https://www.google.com/search?q={operator_encoded})", inline=True)
             
             last_seen = aircraft_data.get('seen', 'N/A')
             if last_seen != 'N/A':
-                last_seen_text = ":green_circle: Just **now**" if float(last_seen) < 1 else f":hourglass: **{int(float(last_seen))}** seconds ago"
-                embed.add_field(name="Last signal", value=last_seen_text, inline=False)
+                last_seen_text = "Just now" if float(last_seen) < 1 else f"{int(float(last_seen))} seconds ago"
+                embed.add_field(name="Last signal", value=last_seen_text, inline=True)
             
             last_seen_pos = aircraft_data.get('seen_pos', 'N/A')
             if last_seen_pos != 'N/A':
-                last_seen_pos_text = ":green_circle: Just **now**" if float(last_seen_pos) < 1 else f":hourglass: **{int(float(last_seen_pos))}** seconds ago"
-                embed.add_field(name="Last position", value=last_seen_pos_text, inline=False)
+                last_seen_pos_text = "Just now" if float(last_seen_pos) < 1 else f"{int(float(last_seen_pos))} seconds ago"
+                embed.add_field(name="Last position", value=last_seen_pos_text, inline=True)
             
             baro_rate = aircraft_data.get('baro_rate', 'N/A')
             if baro_rate == 'N/A':
-                embed.add_field(name="Altitude trend", value=":grey_question: Altitude trends unavailable, **not enough data**", inline=False)
+                embed.add_field(name="Altitude trend", value="Altitude trends unavailable, **not enough data**", inline=True)
             else:
                 baro_rate_fps = round(int(baro_rate) / 60, 2)  # Convert feet per minute to feet per second
                 if abs(baro_rate_fps) < 50/60:
-                    embed.add_field(name="Altitude data", value=":cloud: Maintaining **consistent** altitude", inline=False)
+                    embed.add_field(name="Altitude data", value="Maintaining consistent altitude", inline=True)
                 elif baro_rate_fps > 0:
-                    embed.add_field(name="Altitude data", value=":airplane_departure: Climbing @  " + f"**{baro_rate_fps} feet/sec**", inline=False)
+                    embed.add_field(name="Altitude data", value=" **Climbing** " + f"{baro_rate_fps} feet/sec", inline=True)
                 else:
-                    embed.add_field(name="Altitude data", value=":airplane_arriving: Descending @  " + f"**{abs(baro_rate_fps)} feet/sec**", inline=False)
+                    embed.add_field(name="Altitude data", value=" **Descending** " + f"{abs(baro_rate_fps)} feet/sec", inline=True)
+
             embed.add_field(name="Flight status", value=emergency_status, inline=True)
 
 
@@ -226,11 +220,11 @@ class Skysearch(commands.Cog):
 
             image_url, photographer = await self._get_photo_by_hex(icao)
             if image_url and photographer:
-                embed.set_image(url=image_url)
-                embed.set_footer(text=f"📸 {photographer}")
+                embed.set_thumbnail(url=image_url)
+                embed.set_footer(text=f"Photo by {photographer}")
 
             view = discord.ui.View()
-            view.add_item(discord.ui.Button(label="View on map", emoji="🗺️", url=f"{link}", style=discord.ButtonStyle.link))
+            view.add_item(discord.ui.Button(label="View on airplanes.live", emoji="🗺️", url=f"{link}", style=discord.ButtonStyle.link))
             ground_speed_mph = ground_speed_mph if 'ground_speed_mph' in locals() else 'unknown'
             squawk_code = aircraft_data.get('squawk', 'N/A')
             if squawk_code in emergency_squawk_codes:
@@ -243,17 +237,6 @@ class Skysearch(commands.Cog):
             whatsapp_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote_plus(whatsapp_text)}"
             view.add_item(discord.ui.Button(label="Send on WhatsApp", emoji="📱", url=whatsapp_url, style=discord.ButtonStyle.link))
             await ctx.send(embed=embed, view=view)
-
-#           squawk_code = aircraft_data.get('squawk', 'N/A')
-#            if squawk_code in emergency_squawk_codes:
-#               emergency_embed = discord.Embed(title='Aircraft emergency', color=discord.Colour(0xFF9145))
-#                if squawk_code == '7500':
-#                   emergency_embed.add_field(name="Squawk 7500 - Hijacking", value="The pilots of this aircraft have indicated that the plane is being hijacked. Check local news if this is a domestic flight, or the news channels of the airport the flight is scheduled to arrive at.", inline=False)
-#                elif squawk_code == '7600':
-#                    emergency_embed.add_field(name="Squawk 7600 - Radio failure", value="This code is used to indicate a radio failure. While this code is squawked, assume an aircraft is in a location where reception and/or communication, and thus tracking, may be poor, restricted, or non-existant.", inline=False)
-#                elif squawk_code == '7700':
-#                    emergency_embed.add_field(name="Squawk 7700 - General emergency", value="This code is used to indicate a general emergency. The pilot currently has ATC priority and is working to resolve the situation. Check local news outlets for more information, or if this is a military flight, look into what squadron the plane belonged to, and if they posted any updates later in the day.", inline=False)
-#                await ctx.send(embed=emergency_embed)
 
         else:
             embed = discord.Embed(title='No results found for your query', color=discord.Colour(0xff4545))
@@ -873,60 +856,90 @@ class Skysearch(commands.Cog):
             return
 
         try:
-            url1 = f"https://airport-data.com/api/ap_info.json?{code_type}={code}"
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url1) as response1:
-                    data1 = await response1.json()
-            
-            embed = discord.Embed(title=f"Airport information for {code.upper()}", description=f"# {data1.get('name', 'Unknown Airport')}", color=0xfffffe)
-            embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/White/location.png")
-
-            googlemaps_tokens = await self.bot.get_shared_api_tokens("googlemaps")
-            google_street_view_api_key = googlemaps_tokens.get("api_key", "YOUR_API_KEY")
-            
-            file = None  # Initialize file to None to handle cases where no image is available
-            if google_street_view_api_key != "YOUR_API_KEY":
-                street_view_base_url = "https://maps.googleapis.com/maps/api/staticmap"
-                street_view_params = {
-                    "size": "700x500", # Width x Height
-                    "zoom": "13",
-                    "scale": "2", 
-                    "center": f"{data1['latitude']},{data1['longitude']}",  # Latitude and Longitude as comma-separated string
-                    "maptype": "satellite",
-                    "key": google_street_view_api_key
-                }
+            async with ctx.typing():
+                url1 = f"https://airport-data.com/api/ap_info.json?{code_type}={code}"
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(street_view_base_url, params=street_view_params) as street_view_response:
-                        if street_view_response.status == 200:
-                            # Save the raw binary that the API returns as an image to set in embed.set_image
-                            street_view_image_url = "attachment://street_view_image.png"
-                            embed.set_image(url=street_view_image_url)
-                            street_view_image_stream = io.BytesIO(await street_view_response.read())
-                            file = discord.File(fp=street_view_image_stream, filename="street_view_image.png")
-                        else:
-                            # Handle the error accordingly, e.g., log it or send a message to the user
-                            pass
+                    async with session.get(url1) as response1:
+                        data1 = await response1.json()
+                
+                if 'error' in data1 or not data1 or 'name' not in data1:
+                    embed = discord.Embed(title="Error", description="No airport found with the provided code.", color=0xff4545)
+                    await ctx.send(embed=embed)
+                    return
 
-            view = discord.ui.View(timeout=180)  # Initialize view outside of the else block
-            if 'error' in data1:
-                embed.add_field(name="Error", value=data1['error'], inline=False)
-            elif not data1 or 'name' not in data1:
-                embed.add_field(name="Error", value="No airport found with the provided code.", inline=False)
-            else:
+                embed = discord.Embed(title=f"{data1.get('name', 'Unknown Airport')}", color=0xfffffe)
+
+                # Check for OpenAI API key and use it to generate a summary if available
+                openai_api_key = await self.bot.get_shared_api_tokens("openai")
+                if openai_api_key and 'api_key' in openai_api_key:
+                    openai_api_key = openai_api_key['api_key']
+                    airport_name = data1.get('name', 'Unknown Airport')
+                    openai_payload = {
+                        "model": "gpt-4o-mini",
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are an AI summarizer inside a Discord bot feature. Produce text without titles or headings, and use markdown for styling like - bulletpoints where appropriate. Don't mention terrorist attacks or other world terrorism events. Don't mention the airport's name, ICAO or IATA."
+                            },
+                            {
+                                "role": "user",
+                                "content": f"Generate a summary of the airport named {airport_name}. Include 3 links as bulletpoints where I can read more about the airport"
+                            }
+                        ]
+                    }
+                    headers = {
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {openai_api_key}"
+                    }
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post("https://api.openai.com/v1/chat/completions", headers=headers, json=openai_payload) as openai_response:
+                            if openai_response.status == 200:
+                                openai_data = await openai_response.json()
+                                summary = openai_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+                                embed.description = summary
+                                embed.set_footer(text="Summary generated using AI, check factual accuracy")
+
+                googlemaps_tokens = await self.bot.get_shared_api_tokens("googlemaps")
+                google_street_view_api_key = googlemaps_tokens.get("api_key", "YOUR_API_KEY")
+                
+                file = None  # Initialize file to None to handle cases where no image is available
+                if google_street_view_api_key != "YOUR_API_KEY":
+                    street_view_base_url = "https://maps.googleapis.com/maps/api/staticmap"
+                    street_view_params = {
+                        "size": "1920x1080", # Width x Height
+                        "zoom": "12",
+                        "scale": "2", 
+                        "center": f"{data1['latitude']},{data1['longitude']}",  # Latitude and Longitude as comma-separated string
+                        "maptype": "hybrid",
+                        "key": google_street_view_api_key
+                    }
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(street_view_base_url, params=street_view_params) as street_view_response:
+                            if street_view_response.status == 200:
+                                # Save the raw binary that the API returns as an image to set in embed.set_image
+                                street_view_image_url = "attachment://street_view_image.png"
+                                embed.set_image(url=street_view_image_url)
+                                street_view_image_stream = io.BytesIO(await street_view_response.read())
+                                file = discord.File(fp=street_view_image_stream, filename="street_view_image.png")
+                            else:
+                                # Handle the error accordingly, e.g., log it or send a message to the user
+                                pass
+
+                view = discord.ui.View(timeout=180)  # Initialize view outside of the else block
                 if 'icao' in data1:
-                    embed.add_field(name='ICAO', value=f"`{data1['icao']}`", inline=True)
+                    embed.add_field(name='ICAO', value=f"{data1['icao']}", inline=True)
                 if 'iata' in data1:
-                    embed.add_field(name='IATA', value=f"`{data1['iata']}`", inline=True)
+                    embed.add_field(name='IATA', value=f"{data1['iata']}", inline=True)
                 if 'country_code' in data1:
-                    embed.add_field(name='Country Code', value=f"`{data1['country_code']}`", inline=True)
+                    embed.add_field(name='Country code', value=f":flag_{data1['country_code'].lower()}: {data1['country_code']}", inline=True)
                 if 'location' in data1:
-                    embed.add_field(name='Location', value=f"`{data1['location']}`", inline=True)
+                    embed.add_field(name='Location', value=f"{data1['location']}", inline=True)
                 if 'country' in data1:
-                    embed.add_field(name='Country', value=f"`{data1['country']}`", inline=True)
+                    embed.add_field(name='Country', value=f"{data1['country']}", inline=True)
                 if 'longitude' in data1:
-                    embed.add_field(name='Longitude', value=f"`{data1['longitude']}`", inline=True)
+                    embed.add_field(name='Longitude', value=f"{data1['longitude']}", inline=True)
                 if 'latitude' in data1:
-                    embed.add_field(name='Latitude', value=f"`{data1['latitude']}`", inline=True)
+                    embed.add_field(name='Latitude', value=f"{data1['latitude']}", inline=True)
                 
                 # Check if 'link' is in data1 and add it to the view
                 if 'link' in data1:
@@ -1157,7 +1170,7 @@ class Skysearch(commands.Cog):
             await ctx.send(embed=embed)
 
     @commands.guild_only()
-    @airport_group.command(name='forecast', help='Get the future weather format for an airport by ICAO or IATA code.')
+    @airport_group.command(name='forecast', help='Get the weather for an airport by ICAO or IATA code.')
     async def get_forecast(self, ctx, code: str):
         """Fetch the latitude and longitude of an airport via IATA or ICAO code, then show the forecast"""
         code_type = 'icao' if len(code) == 4 else 'iata' if len(code) == 3 else None

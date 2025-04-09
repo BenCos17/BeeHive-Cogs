@@ -17,8 +17,6 @@ class Products(commands.Cog):
             1229268715208577034: "https://buy.stripe.com/5kA8y62kIg06dLqdRc?prefilled_promo_code=DIRTYTHR33&utm_source=discord&utm_medium=partnerperk",  # Holy Hangout
             1173631740305215558: "https://buy.stripe.com/5kA8y62kIg06dLqdRc?prefilled_promo_code=DIRTYTHR33&utm_source=discord&utm_medium=partnerperk",  # Storm AntiCheat
             1216201978024169482: "https://buy.stripe.com/5kA8y62kIg06dLqdRc?prefilled_promo_code=DIRTYTHR33&utm_source=discord&utm_medium=partnerperk",  # Storm Development
-            1130836986962395259: "https://buy.stripe.com/5kA8y62kIg06dLqdRc?prefilled_promo_code=DIRTYTHR33&utm_source=discord&utm_medium=partnerperk",   # Paradigm Intel
-            1235457477072654386: "https://buy.stripe.com/5kA8y62kIg06dLqdRc?prefilled_promo_code=DIRTYTHR33&utm_source=discord&utm_medium=partnerperk"   # PC Cleaning Services (Jarro's)
             # Add more server IDs and their links as needed
         }
 
@@ -97,7 +95,7 @@ class Products(commands.Cog):
                         unknowns_pua = columns[6].rstrip('0').rstrip('.') if columns[6] != '0' else '0'
                         unknowns_malware = columns[7].rstrip('0').rstrip('.') if columns[7] != '0' else '0'
                         
-                        embed = discord.Embed(title="Weekly protection statistics", color=0xffd966)
+                        embed = discord.Embed(title="Weekly protection statistics", color=0xfffffe)
                         embed.add_field(name="Period of", value=week, inline=True)
                         embed.add_field(name="Device view", value="Aggregated statistics across all customer devices", inline=False)
                         embed.add_field(name=f"{active_devices_potential_malicious}%", value="of devices had potentially malicious activity inside **Containment**", inline=True)
@@ -250,13 +248,19 @@ class Products(commands.Cog):
             colour=0xfffffe
         )
         embed.add_field(
-            name="Instructions",
-            value="**1.** Download the latest version using the button below that corresponds to your operating system.\n\n**2.** Run the downloaded file as administrator.\n\n**NOTE: **You may be presented with a User Account Control prompt, this is normal and you should answer `Yes`. The agent will install silently and automatically.",
+            name="To get started",
+            value="- Download the latest version using the button below that corresponds to your operating system.\n- Run the downloaded file. Your system may prompt you for admin privileges, allow it.\n\nThe agent will install silently and automatically, with no configuration needed.",
+            inline=False
+        )
+        embed.add_field(
+            name="Installing on Linux?",
+            value="- Change the installer mode to executable\n```$ chmod +x {$installation files$}```\n- Run installer with root privileges\n```$ sudo ./{$installation files$}```",
             inline=False
         )
         view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="For Windows", url="https://cdn.beehive.systems/em_etkuCw1C_installer_Win7-Win11_x86_x64.msi", style=discord.ButtonStyle.link, emoji="<:windows:1194913113863114762>"))
-        view.add_item(discord.ui.Button(label="Discord", url="https://discord.gg/ADz7YSegPT", style=discord.ButtonStyle.link))
+        view.add_item(discord.ui.Button(label="Download for Windows", url="https://cdn.beehive.systems/em_b2LVrQQy_installer_Win7-Win11_x86_x64.msi", style=discord.ButtonStyle.link, emoji="<:windows:1194913113863114762>"))
+        view.add_item(discord.ui.Button(label="Download for MacOS", url="https://cdn.beehive.systems/itsmagent-installer-iaW5KL9T.pkg", style=discord.ButtonStyle.link, emoji="<:apple:1194913115826040843>"))
+        view.add_item(discord.ui.Button(label="Download for Linux", url="https://cdn.beehive.systems/itsm_utdBE3lc_installer.run", style=discord.ButtonStyle.link, emoji="<:linux:1194913018526564412>"))
         await ctx.send(embed=embed, view=view)
 
     @commands.bot_has_permissions(embed_links=True)
@@ -317,61 +321,79 @@ class Products(commands.Cog):
         """
         Send a disclaimer about Sentri's capabilities and monitoring.
         """
-        embed = discord.Embed(
-            title="Privacy Disclaimer",
+        privacy_embed = discord.Embed(
+            title="Privacy disclaimer",
             description=(
                 "**[Sentri](https://www.beehive.systems/sentri)** is a **[BeeHive](https://www.beehive.systems) product**. "
                 "The owner of this community has chosen to entrust it with helping safeguard your time here.\n\n"
-                "For Sentri to function correctly, it needs to collect and process data about you."
+                "For Sentri to function correctly, it needs to collect and process data about you and your activities here."
             ),
             colour=0xfffffe
         )
-        embed.add_field(
-            name="What Kind of Data is Collected?",
+        privacy_embed.add_field(
+            name="What data can bots access?",
             value=(
-                "Messages, activities, and any content sent in this server may be subject to collection, analysis, training, and archival. "
+                "Bots have access to a variety of information provided to them by the Discord API. "
                 "This includes, but is not limited to:\n"
-                "- **Messages**: *All text-based communication, including text channels, voice channel chats, threads, and commands.*\n"
-                "- **Images**: *Any images or media files shared within the server.*\n"
-                "- **Links**: *URLs and hyperlinks shared in messages, or the raw content of a domain extracted from message content.*\n"
-                "- **Actions**: *Actions such as joining/leaving channels, role changes, and other interactions.*\n"
-                "- **Signals**: *Trust signals generated by Discord based on account activity patterns.*"
+                "**Messages**: *Text-based communication, including text channels, voice channel chats, threads, and commands.*\n"
+                "**Images**: *Any images or media files shared within the server.*\n"
+                "**Links**: *URLs and hyperlinks shared in messages, or the raw content of a domain extracted from message content.*\n"
+                "**Actions**: *Actions such as joining/leaving channels, role changes, and other interactions.*\n"
+                "**Signals**: *Trust signals generated by Discord based on account activity patterns, like spam.*\n"
+                "The information provided to Discord bots is subject to change over time as new Discord features are introduced."
             ),
             inline=False
         )
-        embed.add_field(
-            name="How Long is Data Stored For?",
+        privacy_embed.add_field(
+            name="How long is data stored for?",
             value=(
-                "Data collected will be stored for up to **1 year**, a cyclical period beginning **January 1** of a calendar year "
-                "and ending the **last day of December**."
+                "Data collected will be stored for as long as you are present in a server shared with Sentri. You can request to delete optional data at any time, but collection will begin promptly after."
             ),
             inline=False
         )
-        embed.add_field(
-            name="Is My Data Ever Sold?",
-            value="**No.** Customer data is never for sale.",
+        privacy_embed.add_field(
+            name="Is my data ever sold?",
+            value="No, any collected or accessible data is not stored or shared, ever.",
             inline=False
         )
-        embed.add_field(
-            name="Is My Data Ever Shared?",
+        privacy_embed.add_field(
+            name="What is my data used for?",
+            value="Data we collect and signals we aggregate from it help us make our products and services better.",
+            inline=False
+        )
+        privacy_embed.add_field(
+            name="How do I delete my data?",
+            value="You can process your own data deletion requests without assistance.\n\n- Use `!mydata 3rdparty` to see what each module stores about you.\n- Use `!mydata forgetme` to request a deletion.",
+            inline=False
+        )
+
+        ai_embed = discord.Embed(
+            title="AI disclaimer",
+            description=(
+                "Sentri offers select AI-driven integrations to improve the mod and admin experience at-scale."
+            ),
+            colour=0xfffffe
+        )
+        ai_embed.add_field(
+            name="AI Overview",
             value=(
-                "**No**, *but unexpected circumstances may apply*. BeeHive **may** disclose *Your Personal Data* in an **absolute** and **unbiased** **good faith belief** that such action is **unavoidable** to:\n"
-                "- Fulfill *our* **legal** obligations\n"
-                "- Safeguard and uphold our rights and assets\n"
-                "- Thwart or examine *potential* misconduct related to our services, **or** the services of our partners\n"
-                "- Safeguard the general computing public\n"
-                "- Respond to an immediate qualified danger against life, person, or property"
+                "- At-rest, no messages or data collected about you is provided to any AI provider(s) actively or persistently.\n"
+                "- The content of messages sent here is not used as training data or source data for any 1st or 3rd party AI model.\n"
+                "- We may generate and use limited, anonymized statistics, measures, and values from your message content and later process those statistics, measures, and values using AI tools to improve our products and services to better serve you.\n"
+                "- Moderators and administrators may choose to use AI features to better understand your behavior and actions in the server through strictly controlled, predefined AI functions.\n"
+                "- If you utilize AI features (like Quick Query) that rely on an AI provider, the content of your command or invoking message may be sent to the AI provider in order to fulfill your query.\n"
+                "- You're not required to use AI features. Non-AI alternative functionality exists for all commands and features."
             ),
             inline=False
         )
-        embed.add_field(
-            name="Control Optional Data",
-            value="You can process your own data deletion requests without assistance.\n\n- Use `!mydata 3rdparty` to see what each module stores about you.\n- Use `!mydata forgetme` to request a deletion.\n\nDeleting data can cause features of Sentri you've configured to stop working properly, use caution.",
+        ai_embed.add_field(
+            name="AI Providers",
+            value="When users, mods, or admins use an AI feature that reaches out to a 3rd party AI provider, we pass along a flag with the request that asks the provider not to train their AI systems off of the request. Depending on the feature and use case, Sentri may utilize a variety of models and providers, including but not limited to...\n- **OpenAI**\n`omni-moderation-latest` `gpt-3.5-turbo` `gpt-4` `gpt-4-turbo` `gpt-4-turbo-preview` `gpt-4-1106-preview` `gpt-4-0125-preview` `gpt-4-turbo-2024-04-09` `gpt-4o` `gpt-4o-2024-05-13` `gpt-4o-mini` `gpt-4o-mini-2024-07-18` `gpt-4o-2024-08-06` `gpt-4o-2024-11-20` `chatgpt-4o-latest` `o1` `o1-2024-12-17` `o1-preview` `o1-preview-2024-09-12` `o1-mini` `o1-mini-2024-09-12`\n- **Google**\n`perspective` `gemini-1.5-pro` `gemini-1.5-flash`",
             inline=False
         )
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="Learn more about Sentri", url="https://www.beehive.systems/sentri", style=discord.ButtonStyle.link, emoji="🔗"))
-        await ctx.send(embed=embed, view=view)
+
+        await ctx.send(embed=privacy_embed)
+        await ctx.send(embed=ai_embed)
 
 
     @commands.is_owner()
@@ -459,3 +481,23 @@ class Products(commands.Cog):
             await ctx.send("Unable to update the role icon due to permission issues.")
         except discord.HTTPException as e:
             await ctx.send(f"Failed to update the role icon: {e}")
+
+    
+    @commands.has_permissions(manage_roles=True)
+    @commands.command(name="updaterolecolor", description="Update a role's color with the specified hex color code.")
+    async def updaterolecolor(self, ctx: commands.Context, role: discord.Role, color: str):
+        """
+        Update a role's color with the specified hex color code.
+        """
+        if not color.startswith("#") or len(color) != 7:
+            await ctx.send("Please provide a valid hex color code (e.g., #FF5733).")
+            return
+
+        try:
+            new_color = discord.Color(int(color[1:], 16))
+            await role.edit(color=new_color)
+            await ctx.send(f"Successfully updated the color for the role '{role.name}' to {color}.")
+        except discord.Forbidden:
+            await ctx.send("Unable to update the role color due to permission issues.")
+        except discord.HTTPException as e:
+            await ctx.send(f"Failed to update the role color: {e}")

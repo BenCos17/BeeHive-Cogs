@@ -1,11 +1,12 @@
-import aiohttp #type: ignore
+import aiohttp  # type: ignore
 import asyncio
-import discord #type: ignore
+import discord  # type: ignore
 import json
 import re
-from redbot.core import commands #type: ignore 
-from redbot.core import app_commands #type: ignore
-from redbot.core import Config #type: ignore
+from redbot.core import commands  # type: ignore
+from redbot.core import app_commands  # type: ignore
+from redbot.core import Config  # type: ignore
+
 
 class URLScan(commands.Cog):
     """URLScan file upload and analysis via Discord"""
@@ -14,40 +15,55 @@ class URLScan(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=1234567890)
         default_guild = {
-            "autoscan_enabled": False
+            "autoscan_enabled": False,
+            "log_channel": None
         }
         self.config.register_guild(**default_guild)
 
     @commands.group(name='urlscan', help="Scan URL's for dangerous content", invoke_without_command=True)
-    async def urlscan(self, ctx, *, urls: str = None):
+    async def urlscan(self, ctx):
+        """Base command for URLScan. Use subcommands for specific actions."""
+        await ctx.send_help(ctx.command)
+
+    @urlscan.command(name='scan', help="Scan a URL using urlscan.io")
+    async def scan(self, ctx, *, urls: str = None):
         """Scan a URL using urlscan.io"""
         await self.scan_urls(ctx, urls)
 
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    @urlscan.command(name="autoscan", description="Toggle automatic URL scanning in messages")
+    @urlscan.command(name="autoscan", description="Toggle automatic URL scanning")
     async def autoscan(self, ctx, state: bool = None):
         """Toggle automatic URL scanning in messages"""
         if state is None:
             state = await self.config.guild(ctx.guild).autoscan_enabled()
-            if state:
-                embed = discord.Embed(title="URLScan Status", description="Automatic URL scanning is currently enabled.", color=0x2BBD8E)
-                await ctx.send(embed=embed)
-            else:
-                embed = discord.Embed(title="URLScan Status", description="Automatic URL scanning is currently disabled.", color=0xff4545)
-                await ctx.send(embed=embed)
+            embed = discord.Embed(
+                title="URLScan Status",
+                description=f"Automatic URL scanning is currently {'enabled' if state else 'disabled'}.",
+                color=0x2BBD8E if state else 0xff4545
+            )
+            await ctx.send(embed=embed)
         else:
             await self.config.guild(ctx.guild).autoscan_enabled.set(state)
-            if state:
-                embed = discord.Embed(title="URLScan Status", description="Automatic URL scanning has been enabled.", color=0x2BBD8E)
-                await ctx.send(embed=embed)
-            else:
-                embed = discord.Embed(title="URLScan Status", description="Automatic URL scanning has been disabled.", color=0xff4545)
-                await ctx.send(embed=embed)
+            embed = discord.Embed(
+                title="URLScan Status",
+                description=f"Automatic URL scanning has been {'enabled' if state else 'disabled'}.",
+                color=0x2BBD8E if state else 0xff4545
+            )
+            await ctx.send(embed=embed)
+
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    @urlscan.command(name="logs", description="Set the logging channel")
+    async def set_log_channel(self, ctx, channel: discord.TextChannel):
+        """Set the logging channel for URL scan results"""
+        await self.config.guild(ctx.guild).log_channel.set(channel.id)
+        await ctx.send(f"Log channel set to {channel.mention}")
 
     async def scan_urls(self, ctx, urls: str = None):
         urlscan_key = await self.bot.get_shared_api_tokens("urlscan")
-        if urlscan_key.get("api_key") is None:
+        api_key = urlscan_key.get("api_key")
+        if api_key is None:
             await ctx.send("The URLScan API key has not been set.")
             return
 
@@ -66,7 +82,7 @@ class URLScan(commands.Cog):
 
         headers = {
             "Content-Type": "application/json",
-            "API-Key": urlscan_key["api_key"]
+            "API-Key": api_key
         }
 
         async with aiohttp.ClientSession() as session:
@@ -91,29 +107,24 @@ class URLScan(commands.Cog):
                                 if 'verdicts' in res2 and 'overall' in res2['verdicts'] and 'score' in res2['verdicts']['overall']:
                                     threat_level = res2['verdicts']['overall']['score']
                                     if threat_level != 0:
-                                        embed.title = "URL is suspicious"
+                                        embed.title = "URLscan.io is suspicious"
                                         embed.description = f"URLScan says {url} is suspicious!\n\nFor your own safety, please don't click it."
-                                        embed.color = 0xFF4545
-                                        embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Red/warning-outline.png")
+                                        embed.color = 0xe25946
                                         view.add_item(discord.ui.Button(label="View results", url=report_url, style=discord.ButtonStyle.link))
                                     else:
-                                        embed.title = "URL is safe"
-                                        embed.color = 0x2BBD8E
+                                        embed.title = "URLscan.io detected no threats"
+                                        embed.color = 0x18bb9c
                                         embed.description = f"URLScan did not detect any threats associated with {url}"
-                                        embed.add_field(name="Overall verdict", value="Scanned and found safe", inline=False)
-                                        embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Green/checkmark-circle-outline.png")
                                         view.add_item(discord.ui.Button(label="View results", url=report_url, style=discord.ButtonStyle.link))
                                 elif 'message' in res2 and res2['message'] == "Scan prevented":
-                                    embed.title = "Domain is whitelisted"
+                                    embed.title = "Domain is known safe"
                                     embed.description = f"The domain for {url} is whitelisted and safe from scanning."
-                                    embed.color = 0x2BBD8E
-                                    embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Green/checkmark-circle-outline.png")
+                                    embed.color = 0x2d3e50
                                     view.add_item(discord.ui.Button(label="View results", url=report_url, style=discord.ButtonStyle.link))
                                 else:
                                     embed.title = "Error occurred during URLScan"
                                     embed.description = f"Unable to determine the threat level for {url}."
-                                    embed.color = 0xFFD700
-                                    embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Yellow/warning-outline.png")
+                                    embed.color = 0xff4545
 
                                 if 'verdicts' in res2 or ('message' in res2 and res2['message'] == "Scan prevented"):
                                     await ctx.send(embed=embed, view=view)
@@ -138,11 +149,18 @@ class URLScan(commands.Cog):
             return
 
         ctx = await self.bot.get_context(message)
+        log_channel_id = await self.config.guild(message.guild).log_channel()
+        log_channel = self.bot.get_channel(log_channel_id) if log_channel_id else None
+
         for url in urls_to_scan:
             urlscan_key = await self.bot.get_shared_api_tokens("urlscan")
+            api_key = urlscan_key.get("api_key")
+            if api_key is None:
+                continue
+
             headers = {
                 "Content-Type": "application/json",
-                "API-Key": urlscan_key["api_key"]
+                "API-Key": api_key
             }
             async with aiohttp.ClientSession() as session:
                 data = {"url": url, "visibility": "public"}
@@ -152,7 +170,7 @@ class URLScan(commands.Cog):
                         continue
 
                     report_api = res['api']
-                    await asyncio.sleep(30)
+                    await asyncio.sleep(60)
                     async with session.get(report_api, timeout=10) as r2:
                         res2 = await r2.json()
                         if 'verdicts' in res2 and 'overall' in res2['verdicts'] and 'score' in res2['verdicts']['overall']:
@@ -161,21 +179,25 @@ class URLScan(commands.Cog):
                                 try:
                                     await message.delete()
                                     embed = discord.Embed(
-                                        title="Threat detected by URLScan",
+                                        title="URLScan detected a threat",
                                         description=f"Deleted a suspicious URL posted by {message.author.mention}.",
-                                        color=0xFF4545
+                                        color=0xe25946
                                     )
                                     await message.channel.send(embed=embed)
+                                    if log_channel:
+                                        await log_channel.send(embed=embed)
                                 except discord.NotFound:
                                     # Message was already deleted, possibly by another link filtering module
                                     pass
                                 except discord.Forbidden:
                                     # Bot does not have permission to delete the message
                                     embed = discord.Embed(
-                                        title="Threat detected by URLScan",
+                                        title="URLScan detected a threat",
                                         description=f"Detected a suspicious URL posted by {message.author.mention}, but I don't have permission to delete it.",
-                                        color=0xFF4545
+                                        color=0xe25946
                                     )
                                     await message.channel.send(embed=embed)
+                                    if log_channel:
+                                        await log_channel.send(embed=embed)
                                 break
             

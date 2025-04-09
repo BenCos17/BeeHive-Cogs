@@ -1,6 +1,7 @@
 import discord #type: ignore
 import asyncio
 import time
+import tempfile
 from datetime import datetime
 from PIL import Image #type: ignore
 from redbot.core import commands, Config #type: ignore
@@ -1133,10 +1134,6 @@ class Cloudflare(commands.Cog):
         """
         View available WHOIS info
         """
-        # Define registrar lists
-        abuse_friendly_registrars = {"NameCheap, Inc.", "Spaceship", "Namecheap"}
-        undetermined_registrars = {"Dynadot Inc", ""}
-        not_receptive_registrars = {"", ""}
 
         api_tokens = await self.bot.get_shared_api_tokens("cloudflare")
         email = api_tokens.get("email")
@@ -1183,8 +1180,19 @@ class Cloudflare(commands.Cog):
 
             whois_info = data.get("result", {})
 
+            # Check if the domain is found
+            if whois_info.get("found", True) is False:
+                embed = discord.Embed(
+                    title="Domain not registered",
+                    description="The domain doesn't seem to be registered. Please check the query and try again.",
+                    color=0xff4545
+                )
+                await ctx.send(embed=embed)
+                return
+
             pages = []
-            page = discord.Embed(title=f"WHOIS Information for {domain}", color=discord.Color.from_str("#2BBD8E"))
+            page = discord.Embed(title=f"WHOIS query for {domain}", color=0xFF6633)
+            page.set_footer(text="WHOIS information provided by Cloudflare", icon_url="https://cdn.brandfetch.io/idJ3Cg8ymG/w/400/h/400/theme/dark/icon.jpeg?c=1dxbfHSJFAPEGdCLU4o5B")
             field_count = 0
 
             def add_field_to_page(page, name, value):
@@ -1193,107 +1201,14 @@ class Cloudflare(commands.Cog):
                 field_count += 1
                 if field_count == 10:
                     pages.append(page)
-                    page = discord.Embed(title=f"WHOIS Information for {domain}", color=discord.Color.from_str("#2BBD8E"))
+                    page = discord.Embed(title=f"WHOIS query for {domain}", color=0xFF6633)
                     field_count = 0
                 return page
 
             if "registrar" in whois_info:
-                registrar_value = f"`{whois_info['registrar']}`"
-                page = add_field_to_page(page, "Registrar", registrar_value)
+                registrar_value = f"{whois_info['registrar']}"
+                page.add_field(name="Registered with", value=registrar_value, inline=True)
 
-                # Determine abuse report status
-                registrar_name = whois_info['registrar']
-                if registrar_name in abuse_friendly_registrars:
-                    abuse_contact_email = whois_info.get('registrar_email', 'N/A')
-                    abuse_status = f"This registrar is known receptive and helpful to abuse reports. You can report abuse to: {abuse_contact_email}"
-                elif registrar_name in undetermined_registrars:
-                    abuse_status = "We don't have enough history with this registrar to determine how helpful they are with abuse reports"
-                elif registrar_name in not_receptive_registrars:
-                    abuse_status = "This registrar is known to refuse, ignore, or otherwise fail to engage with abuse reports"
-                else:
-                    abuse_status = "We don't have enough history with this registrar to determine how helpful they are with abuse reports"
-
-                page = add_field_to_page(page, "Abuse Report Status", f"`{abuse_status}`")
-
-            # Add other fields as before
-            if "administrative_city" in whois_info:
-                administrative_city_value = f"**`{whois_info['administrative_city']}`**"
-                page = add_field_to_page(page, "Admin city", administrative_city_value)
-            if "administrative_country" in whois_info:
-                administrative_country_value = f"**`{whois_info['administrative_country']}`**"
-                page = add_field_to_page(page, "Admin country", administrative_country_value)
-            if "administrative_email" in whois_info:
-                administrative_email_value = f"**`{whois_info['administrative_email']}`**"
-                page = add_field_to_page(page, "Admin email", administrative_email_value)
-            if "administrative_fax" in whois_info:
-                administrative_fax_value = f"**`{whois_info['administrative_fax']}`**"
-                page = add_field_to_page(page, "Admin fax", administrative_fax_value)
-            if "administrative_fax_ext" in whois_info:
-                administrative_fax_ext_value = f"**`{whois_info['administrative_fax_ext']}`**"
-                page = add_field_to_page(page, "Admin fax ext", administrative_fax_ext_value)
-            if "administrative_id" in whois_info:
-                administrative_id_value = f"**`{whois_info['administrative_id']}`**"
-                page = add_field_to_page(page, "Admin ID", administrative_id_value)
-            if "administrative_name" in whois_info:
-                administrative_name_value = f"**`{whois_info['administrative_name']}`**"
-                page = add_field_to_page(page, "Admin name", administrative_name_value)
-            if "administrative_org" in whois_info:
-                administrative_org_value = f"**`{whois_info['administrative_org']}`**"
-                page = add_field_to_page(page, "Admin org", administrative_org_value)
-            if "administrative_phone" in whois_info:
-                administrative_phone_value = f"**`{whois_info['administrative_phone']}`**"
-                page = add_field_to_page(page, "Admin phone", administrative_phone_value)
-            if "administrative_phone_ext" in whois_info:
-                administrative_phone_ext_value = f"**`{whois_info['administrative_phone_ext']}`**"
-                page = add_field_to_page(page, "Admin phone ext", administrative_phone_ext_value)
-            if "administrative_postal_code" in whois_info:
-                administrative_postal_code_value = f"**`{whois_info['administrative_postal_code']}`**"
-                page = add_field_to_page(page, "Administrative Postal Code", administrative_postal_code_value)
-            if "administrative_province" in whois_info:
-                administrative_province_value = f"**`{whois_info['administrative_province']}`**"
-                page = add_field_to_page(page, "Administrative Province", administrative_province_value)
-            if "administrative_street" in whois_info:
-                administrative_street_value = f"**`{whois_info['administrative_street']}`**"
-                page = add_field_to_page(page, "Administrative Street", administrative_street_value)
-            if "billing_city" in whois_info:
-                billing_city_value = f"**`{whois_info['billing_city']}`**"
-                page = add_field_to_page(page, "Billing City", billing_city_value)
-            if "billing_country" in whois_info:
-                billing_country_value = f"**`{whois_info['billing_country']}`**"
-                page = add_field_to_page(page, "Billing Country", billing_country_value)
-            if "billing_email" in whois_info:
-                billing_email_value = f"**`{whois_info['billing_email']}`**"
-                page = add_field_to_page(page, "Billing Email", billing_email_value)
-            if "billing_fax" in whois_info:
-                billing_fax_value = f"**`{whois_info['billing_fax']}`**"
-                page = add_field_to_page(page, "Billing Fax", billing_fax_value)
-            if "billing_fax_ext" in whois_info:
-                billing_fax_ext_value = f"**`{whois_info['billing_fax_ext']}`**"
-                page = add_field_to_page(page, "Billing Fax Ext", billing_fax_ext_value)
-            if "billing_id" in whois_info:
-                billing_id_value = f"**`{whois_info['billing_id']}`**"
-                page = add_field_to_page(page, "Billing ID", billing_id_value)
-            if "billing_name" in whois_info:
-                billing_name_value = f"**`{whois_info['billing_name']}`**"
-                page = add_field_to_page(page, "Billing Name", billing_name_value)
-            if "billing_org" in whois_info:
-                billing_org_value = f"**`{whois_info['billing_org']}`**"
-                page = add_field_to_page(page, "Billing Org", billing_org_value)
-            if "billing_phone" in whois_info:
-                billing_phone_value = f"**`{whois_info['billing_phone']}`**"
-                page = add_field_to_page(page, "Billing Phone", billing_phone_value)
-            if "billing_phone_ext" in whois_info:
-                billing_phone_ext_value = f"**`{whois_info['billing_phone_ext']}`**"
-                page = add_field_to_page(page, "Billing Phone Ext", billing_phone_ext_value)
-            if "billing_postal_code" in whois_info:
-                billing_postal_code_value = f"**`{whois_info['billing_postal_code']}`**"
-                page = add_field_to_page(page, "Billing Postal Code", billing_postal_code_value)
-            if "billing_province" in whois_info:
-                billing_province_value = f"**`{whois_info['billing_province']}`**"
-                page = add_field_to_page(page, "Billing Province", billing_province_value)
-            if "billing_street" in whois_info:
-                billing_street_value = f"**`{whois_info['billing_street']}`**"
-                page = add_field_to_page(page, "Billing Street", billing_street_value)
             if "created_date" in whois_info:
                 created_date = whois_info["created_date"]
                 if isinstance(created_date, str):
@@ -1302,18 +1217,19 @@ class Cloudflare(commands.Cog):
                         created_date = datetime.strptime(created_date, "%Y-%m-%dT%H:%M:%S.%fZ")
                     except ValueError:
                         created_date = datetime.strptime(created_date, "%Y-%m-%dT%H:%M:%S")
-                unix_timestamp = int(created_date.timestamp())
-                discord_timestamp = f"**<t:{unix_timestamp}:F>**"
-                page = add_field_to_page(page, "Created Date", discord_timestamp)
-            if "dnssec" in whois_info:
-                if "dnssec" in whois_info:
-                    dnssec_value = whois_info["dnssec"]
-                    dnssec_value = f"**`{dnssec_value}`**"
-                    page = add_field_to_page(page, "DNSSEC", dnssec_value)
-                if "domain" in whois_info:
-                    domain_value = whois_info["domain"]
-                    domain_value = f"**`{domain_value}`**"
-                    page = add_field_to_page(page, "Domain", domain_value)
+                unix_timestamp = int(created_date.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+                discord_timestamp = f"<t:{unix_timestamp}:d>"
+                page.add_field(name="Created on", value=discord_timestamp, inline=True)
+
+            if "updated_date" in whois_info:
+                try:
+                    updated_date = int(datetime.strptime(whois_info["updated_date"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp())
+                    page.add_field(name="Updated on", value=f"<t:{updated_date}:d>", inline=True)
+                except ValueError:
+                    pass
+                except AttributeError:
+                    pass
+
             if "expiration_date" in whois_info:
                 expiration_date = whois_info["expiration_date"]
                 if isinstance(expiration_date, str):
@@ -1322,166 +1238,84 @@ class Cloudflare(commands.Cog):
                     except ValueError:
                         expiration_date = datetime.strptime(expiration_date, "%Y-%m-%dT%H:%M:%S")
                 unix_timestamp = int(expiration_date.timestamp())
-                discord_timestamp = f"**<t:{unix_timestamp}:F>**"
-                page = add_field_to_page(page, "Expiration Date", discord_timestamp)
-            if "extension" in whois_info:
-                extension_value = whois_info["extension"]
-                extension_value = f"**`{extension_value}`**"
-                page = add_field_to_page(page, "Extension", extension_value)
-            if "found" in whois_info:
-                found_value = f"**`{whois_info['found']}`**"
-                page = add_field_to_page(page, "Found", found_value)
-            if "id" in whois_info:
-                id_value = f"**`{whois_info['id']}`**"
-                page = add_field_to_page(page, "ID", id_value)
-            if "nameservers" in whois_info:
-                nameservers_list = "\n".join(f"- **`{ns}`**" for ns in whois_info["nameservers"])
-                page = add_field_to_page(page, "Nameservers", nameservers_list)
-            if "punycode" in whois_info:
-                punycode_value = f"**`{whois_info['punycode']}`**"
-                page = add_field_to_page(page, "Punycode", punycode_value)
-            if "registrant" in whois_info and whois_info["registrant"].strip():
-                registrant_value = f"**`{whois_info['registrant']}`**"
-                page = add_field_to_page(page, "Registrant", registrant_value)
-            else:
-                registrant_value = "**`REDACTED`**"
-                page = add_field_to_page(page, "Registrant", registrant_value)
-            if "registrant_city" in whois_info:
-                registrant_city = f"**`{whois_info['registrant_city']}`**"
-                page = add_field_to_page(page, "Registrant City", registrant_city)
-            if "registrant_country" in whois_info:
-                registrant_country = f"**`{whois_info['registrant_country']}`**"
-                page = add_field_to_page(page, "Registrant Country", registrant_country)
-            if "registrant_email" in whois_info:
-                registrant_email = f"**`{whois_info['registrant_email']}`**"
-                page = add_field_to_page(page, "Registrant Email", registrant_email)
-            if "registrant_fax" in whois_info:
-                registrant_fax = f"**`{whois_info['registrant_fax']}`**"
-                page = add_field_to_page(page, "Registrant Fax", registrant_fax)
-            if "registrant_fax_ext" in whois_info:
-                registrant_fax_ext = f"**`{whois_info['registrant_fax_ext']}`**"
-                page = add_field_to_page(page, "Registrant Fax Ext", registrant_fax_ext)
-            if "registrant_id" in whois_info:
-                registrant_id = f"**`{whois_info['registrant_id']}`**"
-                page = add_field_to_page(page, "Registrant ID", registrant_id)
-            if "registrant_name" in whois_info:
-                registrant_name = f"**`{whois_info['registrant_name']}`**"
-                page = add_field_to_page(page, "Registrant Name", registrant_name)
-            if "registrant_org" in whois_info:
-                registrant_org = f"**`{whois_info['registrant_org']}`**"
-                page = add_field_to_page(page, "Registrant Org", registrant_org)
-            if "registrant_phone" in whois_info:
-                registrant_phone = f"**`{whois_info['registrant_phone']}`**"
-                page = add_field_to_page(page, "Registrant Phone", registrant_phone)
-            if "registrant_phone_ext" in whois_info:
-                registrant_phone_ext = f"**`{whois_info['registrant_phone_ext']}`**"
-                page = add_field_to_page(page, "Registrant Phone Ext", registrant_phone_ext)
-            if "registrant_postal_code" in whois_info:
-                registrant_postal_code = f"**`{whois_info['registrant_postal_code']}`**"
-                page = add_field_to_page(page, "Registrant Postal Code", registrant_postal_code)
-            if "registrant_province" in whois_info:
-                registrant_province = f"**`{whois_info['registrant_province']}`**"
-                page = add_field_to_page(page, "Registrant Province", registrant_province)
-            if "registrant_street" in whois_info:
-                registrant_street = f"**`{whois_info['registrant_street']}`**"
-                page = add_field_to_page(page, "Registrant Street", registrant_street)
-            if "registrar_city" in whois_info:
-                registrar_city = f"**`{whois_info['registrar_city']}`**"
-                page = add_field_to_page(page, "Registrar City", registrar_city)
-            if "registrar_country" in whois_info:
-                registrar_country = f"**`{whois_info['registrar_country']}`**"
-                page = add_field_to_page(page, "Registrar Country", registrar_country)
-            if "registrar_email" in whois_info:
-                registrar_email = f"**`{whois_info['registrar_email']}`**"
-                page = add_field_to_page(page, "Registrar Email", registrar_email)
-            if "registrar_fax" in whois_info:
-                registrar_fax = f"**`{whois_info['registrar_fax']}`**"
-                page = add_field_to_page(page, "Registrar Fax", registrar_fax)
-            if "registrar_fax_ext" in whois_info:
-                registrar_fax_ext = f"**`{whois_info['registrar_fax_ext']}`**"
-                page = add_field_to_page(page, "Registrar Fax Ext", registrar_fax_ext)
-            if "registrar_id" in whois_info:
-                registrar_id = f"**`{whois_info['registrar_id']}`**"
-                page = add_field_to_page(page, "Registrar ID", registrar_id)
-            if "registrar_name" in whois_info:
-                registrar_name = f"**`{whois_info['registrar_name']}`**"
-                page = add_field_to_page(page, "Registrar Name", registrar_name)
-            if "registrar_org" in whois_info:
-                registrar_org = f"**`{whois_info['registrar_org']}`**"
-                page = add_field_to_page(page, "Registrar Org", registrar_org)
-            if "registrar_phone" in whois_info:
-                registrar_phone = f"**`{whois_info['registrar_phone']}`**"
-                page = add_field_to_page(page, "Registrar Phone", registrar_phone)
-            if "registrar_phone_ext" in whois_info:
-                registrar_phone_ext = f"**`{whois_info['registrar_phone_ext']}`**"
-                page = add_field_to_page(page, "Registrar Phone Ext", registrar_phone_ext)
-            if "registrar_postal_code" in whois_info:
-                registrar_postal_code = f"**`{whois_info['registrar_postal_code']}`**"
-                page = add_field_to_page(page, "Registrar Postal Code", registrar_postal_code)
-            if "registrar_province" in whois_info:
-                registrar_province = f"**`{whois_info['registrar_province']}`**"
-                page = add_field_to_page(page, "Registrar Province", registrar_province)
-            if "registrar_street" in whois_info:
-                registrar_street = f"**`{whois_info['registrar_street']}`**"
-                page = add_field_to_page(page, "Registrar Street", registrar_street)
-            if "status" in whois_info:
-                status_value = f"**`{', '.join(whois_info['status'])}`**"
-                page = add_field_to_page(page, "Status", status_value)
-            if "technical_city" in whois_info:
-                technical_city = f"**`{whois_info['technical_city']}`**"
-                page = add_field_to_page(page, "Technical City", technical_city)
-            if "technical_country" in whois_info:
-                technical_country = f"**`{whois_info['technical_country']}`**"
-                page = add_field_to_page(page, "Technical Country", technical_country)
-            if "technical_email" in whois_info:
-                technical_email = f"**`{whois_info['technical_email']}`**"
-                page = add_field_to_page(page, "Technical Email", technical_email)
-            if "technical_fax" in whois_info:
-                technical_fax = f"**`{whois_info['technical_fax']}`**"
-                page = add_field_to_page(page, "Technical Fax", technical_fax)
-            if "technical_fax_ext" in whois_info:
-                technical_fax_ext = f"**`{whois_info['technical_fax_ext']}`**"
-                page = add_field_to_page(page, "Technical Fax Ext", technical_fax_ext)
-            if "technical_id" in whois_info:
-                technical_id = f"**`{whois_info['technical_id']}`**"
-                page = add_field_to_page(page, "Technical ID", technical_id)
-            if "technical_name" in whois_info:
-                technical_name = f"**`{whois_info['technical_name']}`**"
-                page = add_field_to_page(page, "Technical Name", technical_name)
-            if "technical_org" in whois_info:
-                technical_org = f"**`{whois_info['technical_org']}`**"
-                page = add_field_to_page(page, "Technical Org", technical_org)
-            if "technical_phone" in whois_info:
-                technical_phone = f"**`{whois_info['technical_phone']}`**"
-                page = add_field_to_page(page, "Technical Phone", technical_phone)
-            if "technical_phone_ext" in whois_info:
-                technical_phone_ext = f"**`{whois_info['technical_phone_ext']}`**"
-                page = add_field_to_page(page, "Technical Phone Ext", technical_phone_ext)
-            if "technical_postal_code" in whois_info:
-                technical_postal_code = f"**`{whois_info['technical_postal_code']}`**"
-                page = add_field_to_page(page, "Technical Postal Code", technical_postal_code)
-            if "technical_province" in whois_info:
-                technical_province = f"**`{whois_info['technical_province']}`**"
-                page = add_field_to_page(page, "Technical Province", technical_province)
-            if "technical_street" in whois_info:
-                technical_street = f"**`{whois_info['technical_street']}`**"
-                page = add_field_to_page(page, "Technical Street", technical_street)
-            if "updated_date" in whois_info:
-                try:
-                    updated_date = int(datetime.strptime(whois_info["updated_date"], "%Y-%m-%dT%H:%M:%S").timestamp())
-                    page = add_field_to_page(page, "Updated Date", f"**<t:{updated_date}:F>**")
-                except ValueError:
-                    pass  # Handle the case where the date format is incorrect
-                except AttributeError:
-                    pass  # Handle the case where the date is not a string
+                discord_timestamp = f"<t:{unix_timestamp}:d>"
+                page.add_field(name="Expires on", value=discord_timestamp, inline=True)
+
+            if "dnssec" in whois_info:
+                dnssec_value = whois_info["dnssec"]
+                if dnssec_value is True:
+                    dnssec_value = ":white_check_mark: Enabled"
+                elif dnssec_value is False:
+                    dnssec_value = ":x: Disabled"
+                else:
+                    dnssec_value = f":grey_question: Unknown"
+                page.add_field(name="DNSSEC", value=dnssec_value, inline=True)
+
             if "whois_server" in whois_info:
-                whois_server = f"**`{whois_info['whois_server']}`**"
-                page = add_field_to_page(page, "WHOIS Server", whois_server)
+                whois_server = f"{whois_info['whois_server']}"
+                page.add_field(name="Lookup via", value=whois_server, inline=True)
+
+            if "nameservers" in whois_info:
+                nameservers_list = "\n".join(f"- {ns}" for ns in whois_info["nameservers"])
+                page = add_field_to_page(page, "Nameservers", nameservers_list)
+                
+            if "status" in whois_info:
+                status_explainers = {
+                    "clienttransferprohibited": ":lock: **Transfer prohibited**",
+                    "clientdeleteprohibited": ":no_entry: **Deletion prohibited**",
+                    "clientupdateprohibited": ":pencil2: **Update prohibited**",
+                    "clientrenewprohibited": ":credit_card: **Renewal prohibited**",
+                    "clienthold": ":pause_button: **Held by registrar**",
+                    "servertransferprohibited": ":lock: **Server locked**",
+                    "serverdeleteprohibited": ":no_entry: **Server deletion prohibited**",
+                    "serverupdateprohibited": ":pencil2: **Server update prohibited**",
+                    "serverhold": ":pause_button: **Server on hold**",
+                    "pendingtransfer": ":hourglass: **Pending transfer**",
+                    "pendingdelete": ":hourglass: **Pending deletion**",
+                    "pendingupdate": ":hourglass: **Pending update**",
+                    "ok": ":white_check_mark: **Active**"
+                }
+                status_list = "\n".join(
+                    f"- `{status}` \n> {status_explainers.get(status.lower(), ':grey_question: *Unknown status*')}" 
+                    for status in whois_info["status"]
+                )
+                page = add_field_to_page(page, "Status", status_list)
+
+            contact_methods = []
+
+            # Order: Name, Organization, ID, Email, Phone, Fax, Address
+            if "registrar_name" in whois_info:
+                contact_methods.append(f":office: {whois_info['registrar_name']}")
+            if "registrar_org" in whois_info:
+                contact_methods.append(f":busts_in_silhouette: {whois_info['registrar_org']}")
+            if "registrar_id" in whois_info:
+                contact_methods.append(f":id: {whois_info['registrar_id']}")
+            if "registrar_email" in whois_info:
+                contact_methods.append(f":incoming_envelope: {whois_info['registrar_email']}")
+            if "registrar_phone" in whois_info:
+                phone_number = whois_info['registrar_phone']
+                contact_methods.append(f":telephone_receiver: {phone_number}")
+            if "registrar_phone_ext" in whois_info:
+                contact_methods.append(f":1234: {whois_info['registrar_phone_ext']}")
+            if "registrar_fax" in whois_info:
+                contact_methods.append(f":fax: {whois_info['registrar_fax']}")
+            if "registrar_fax_ext" in whois_info:
+                contact_methods.append(f":1234: {whois_info['registrar_fax_ext']}")
+            if "registrar_street" in whois_info:
+                contact_methods.append(f":house: {whois_info['registrar_street']}")
+            if "registrar_province" in whois_info:
+                contact_methods.append(f":map: {whois_info['registrar_province']}")
+            if "registrar_postal_code" in whois_info:
+                contact_methods.append(f":mailbox: {whois_info['registrar_postal_code']}")
+
+            if contact_methods:
+                contact_info = "\n".join(contact_methods)
+                page = add_field_to_page(page, "To report abuse", contact_info)
 
             if page.fields:
                 pages.append(page)
 
-            # Create a view with a button
+            # Create a view with buttons
             view = discord.ui.View()
             if "administrative_referral_url" in whois_info:
                 button = discord.ui.Button(label="Admin", url=whois_info["administrative_referral_url"])
@@ -1497,10 +1331,143 @@ class Cloudflare(commands.Cog):
                 view.add_item(button)
             if "technical_referral_url" in whois_info:
                 button = discord.ui.Button(label="Technical", url=whois_info["technical_referral_url"])
-                view.add_item(button)
+                view.add_item(button)            
 
-            for page in pages:
-                page.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Green/globe.png")
+            async def download_report(interaction: discord.Interaction):
+                try:
+                    html_content = f"""
+                    <html>
+                        <head>
+                            <title>WHOIS Report for {domain}</title>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <link rel="preconnect" href="https://fonts.googleapis.com">
+                            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                            <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+                            <style>
+                                body {{
+                                    font-family: 'Inter Tight', sans-serif;
+                                    margin: 20px;
+                                    background-color: #f4f4f9;
+                                    color: #333;
+                                }}
+                                h1, h2, h3 {{
+                                    color: #000000;
+                                    text-align: left;
+                                }}
+                                h1 {{
+                                    font-size: 2em;
+                                    margin-bottom: 10px;
+                                }}
+                                h2 {{
+                                    font-size: 1.5em;
+                                    margin-bottom: 5px;
+                                }}
+                                h3 {{
+                                    font-size: 1.2em;
+                                    margin-bottom: 5px;
+                                }}
+                                .header {{
+                                    text-align: left;
+                                    margin-bottom: 30px;
+                                }}
+                                .content {{
+                                    max-width: 800px;
+                                    margin: 0 auto;
+                                    padding: 20px;
+                                    background-color: #ffffff;
+                                    border-radius: 8px;
+                                    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+                                }}
+                                .section {{
+                                    margin-bottom: 20px;
+                                }}
+                                .card-container {{
+                                    display: flex;
+                                    flex-wrap: wrap;
+                                    justify-content: space-between;
+                                    gap: 10px; /* Add gap to ensure space between cards */
+                                }}
+                                .card {{
+                                    background-color: #f0f4f9;
+                                    border-radius: 10px;
+                                    padding: 15px;
+                                    margin-bottom: 10px;
+                                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+                                    flex: 1 1 calc(50% - 10px); /* Ensure cards take up half the container width minus the gap */
+                                    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+                                }}
+                                .key {{
+                                    font-weight: bold;
+                                    color: #000000;
+                                    font-size: 1em;
+                                }}
+                                .value {{
+                                    color: #000000;
+                                    font-size: 1em;
+                                }}
+                                hr {{
+                                    border: 0;
+                                    height: 1px;
+                                    background: #ddd;
+                                    margin: 20px 0;
+                                }}
+                            </style>
+                        </head>
+                        <body>
+                            <div class="content">
+                                <div class="header">
+                                    <h1>WHOIS Report for {domain}</h1>
+                                    <p>Data provided by Cloudflare Intel and the respective registrar's WHOIS server</p>
+                                </div>
+                                <hr>
+                                <div class="section">
+                                    <h2>Report information</h2>
+                                    <div class="card">
+                                        <p><span class="key">Domain queried</span></p>
+                                        <p><span class="value">{domain}</span></p>
+                                    </div>
+                                </div>
+                                <div class="section">
+                                    <h2>WHOIS</h2>
+                                    <div class="card-container">
+                    """
+                    for key, value in whois_info.items():
+                        html_content += f"""
+                                        <div class='card'>
+                                            <p><span class='key'>{key.replace('_', ' ').title()}</span></p>
+                                            <p><span class='value'>{value}</span></p>
+                                        </div>
+                        """
+
+                    html_content += """
+                                    </div>
+                                </div>
+                            </div>
+                        </body>
+                    </html>
+                    """
+
+                    # Use a temporary file
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as temp_file:
+                        temp_file.write(html_content.encode('utf-8'))
+                        temp_file_path = temp_file.name
+
+                    # Send the HTML file
+                    await interaction.response.send_message(
+                        content="Please open the attached file in a web browser to view the report.",
+                        file=discord.File(temp_file_path),
+                        ephemeral=True
+                    )
+                except Exception as e:
+                    await interaction.response.send_message(
+                        content="Failed to generate or send the HTML report.",
+                        ephemeral=True
+                    )
+
+            download_button = discord.ui.Button(label="Download full report", style=discord.ButtonStyle.grey)
+            download_button.callback = download_report
+            view.add_item(download_button)
+
             message = await ctx.send(embed=pages[0], view=view)
 
             current_page = 0
@@ -1576,46 +1543,104 @@ class Cloudflare(commands.Cog):
         }
 
         async with self.session.get(url, headers=headers, params=params) as response:
-            if response.status == 200:
-                data = await response.json()
-                if data["success"]:
-                    result = data["result"]
-                    embed = discord.Embed(title=f"Domain intelligence for {result.get('domain', 'N/A')}", color=0x2BBD8E)
-                    
-                    if "domain" in result:
-                        embed.add_field(name="Domain", value=f"`{result['domain']}`", inline=False)
-                    if "risk_score" in result:
-                        embed.add_field(name="Risk Score", value=f"`{result['risk_score']}`", inline=False)
-                    if "popularity_rank" in result:
-                        embed.add_field(name="Popularity Rank", value=f"`{result['popularity_rank']}`", inline=False)
-                    if "application" in result and "name" in result["application"]:
-                        embed.add_field(name="Application", value=f"`{result['application']['name']}`", inline=False)
-                    if "additional_information" in result and "suspected_malware_family" in result["additional_information"]:
-                        embed.add_field(name="Suspected Malware Family", value=f"`{result['additional_information']['suspected_malware_family']}`", inline=False)
-                    if "content_categories" in result:
-                        embed.add_field(name="Content Categories", value=", ".join([f"`{cat['name']}`" for cat in result["content_categories"]]), inline=False)
-                    if "resolves_to_refs" in result:
-                        embed.add_field(name="Resolves To", value=", ".join([f"`{ref['value']}`" for ref in result["resolves_to_refs"]]), inline=False)
-                    if "inherited_content_categories" in result:
-                        embed.add_field(name="Inherited Content Categories", value=", ".join([f"`{cat['name']}`" for cat in result["inherited_content_categories"]]), inline=False)
-                    if "inherited_from" in result:
-                        embed.add_field(name="Inherited From", value=f"`{result['inherited_from']}`", inline=False)
-                    if "inherited_risk_types" in result:
-                        embed.add_field(name="Inherited Risk Types", value=", ".join([f"`{risk['name']}`" for risk in result["inherited_risk_types"]]), inline=False)
-                    if "risk_types" in result:
-                        embed.add_field(name="Risk Types", value=", ".join([f"`{risk['name']}`" for risk in result["risk_types"]]), inline=False)
+            data = await response.json()
+            if response.status == 200 and data.get("success", False):
+                result = data.get("result", {})
+                embed = discord.Embed(title=f"Domain intelligence for {result.get('domain', 'N/A')}", color=0xFF6633)
+                
+                domain = result.get('domain')
+                if domain:
+                    embed.add_field(name="Domain", value=f"{domain}", inline=False)
+                
+                risk_score = result.get('risk_score')
+                if risk_score is not None:
+                    embed.add_field(name="Risk score", value=f"{risk_score}", inline=False)
+                
+                popularity_rank = result.get('popularity_rank')
+                if popularity_rank is not None:
+                    embed.add_field(name="Popularity rank", value=f"{popularity_rank}", inline=False)
+                
+                application = result.get("application", {})
+                application_name = application.get('name')
+                if application_name:
+                    embed.add_field(name="Application", value=f"{application_name}", inline=False)
+                
+                additional_info = result.get("additional_information", {})
+                suspected_malware_family = additional_info.get('suspected_malware_family')
+                if suspected_malware_family:
+                    embed.add_field(name="Suspected malware family", value=f"{suspected_malware_family}", inline=False)
+                
+                content_categories = result.get("content_categories", [])
+                if content_categories:
+                    categories_list = "\n".join([f"- {cat.get('name', 'N/A')}" for cat in content_categories])
+                    embed.add_field(name="Content categories", value=categories_list, inline=False)
+                
+                resolves_to_refs = result.get("resolves_to_refs", [])
+                if resolves_to_refs:
+                    embed.add_field(name="Resolves to", value=", ".join([f"{ref.get('value', 'N/A')}" for ref in resolves_to_refs]), inline=False)
+                
+                inherited_content_categories = result.get("inherited_content_categories", [])
+                if inherited_content_categories:
+                    embed.add_field(name="Inherited content categories", value=", ".join([f"{cat.get('name', 'N/A')}" for cat in inherited_content_categories]), inline=False)
+                
+                inherited_from = result.get('inherited_from')
+                if inherited_from:
+                    embed.add_field(name="Inherited from", value=f"`{inherited_from}`", inline=False)
+                
+                inherited_risk_types = result.get("inherited_risk_types", [])
+                if inherited_risk_types:
+                    embed.add_field(name="Inherited risk types", value=", ".join([f"{risk.get('name', 'N/A')}" for risk in inherited_risk_types]), inline=False)
+                
+                risk_types = result.get("risk_types", [])
+                if risk_types:
+                    embed.add_field(name="Risk types", value=", ".join([f"{risk.get('name', 'N/A')}" for risk in risk_types]), inline=False)
 
-                    # Add blocklist status
-                    blocklist_status = ":white_check_mark: Yes" if is_blocked else ":x: No"
-                    embed.add_field(name="On BeeHive Blocklist", value=f"**{blocklist_status}**", inline=False)
+                # Add blocklist status
+                blocklist_status = ":white_check_mark: Yes" if is_blocked else ":x: No"
+                embed.add_field(name="On BeeHive blocklist", value=f"{blocklist_status}", inline=False)
 
-                    embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Green/globe.png")
-                    await ctx.send(embed=embed)
-                else:
-                    error_embed = discord.Embed(title="Error", description=f"Error: {data['errors']}", color=0xff4545)
-                    await ctx.send(embed=error_embed)
+                # Create a view with a download button
+                view = discord.ui.View()
+
+                async def download_report(interaction: discord.Interaction):
+                    try:
+                        # Generate the report content
+                        report_content = f"Domain Intelligence Report for {domain}\n\n"
+                        report_content += f"Domain: {result.get('domain', 'N/A')}\n"
+                        report_content += f"Risk Score: {result.get('risk_score', 'N/A')}\n"
+                        report_content += f"Popularity Rank: {result.get('popularity_rank', 'N/A')}\n"
+                        report_content += f"Application: {application.get('name', 'N/A')}\n"
+                        report_content += f"Suspected Malware Family: {additional_info.get('suspected_malware_family', 'N/A')}\n"
+                        report_content += f"Content Categories: {', '.join([cat.get('name', 'N/A') for cat in content_categories])}\n"
+                        report_content += f"Resolves To: {', '.join([ref.get('value', 'N/A') for ref in resolves_to_refs])}\n"
+                        report_content += f"Inherited Content Categories: {', '.join([cat.get('name', 'N/A') for cat in inherited_content_categories])}\n"
+                        report_content += f"Inherited From: {result.get('inherited_from', 'N/A')}\n"
+                        report_content += f"Inherited Risk Types: {', '.join([risk.get('name', 'N/A') for risk in inherited_risk_types])}\n"
+                        report_content += f"Risk Types: {', '.join([risk.get('name', 'N/A') for risk in risk_types])}\n"
+                        report_content += f"On BeeHive Blocklist: {'Yes' if is_blocked else 'No'}\n"
+
+                        # Use a temporary file
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as temp_file:
+                            temp_file.write(report_content.encode('utf-8'))
+                            temp_file_path = temp_file.name
+
+                        # Send the TXT file
+                        await interaction.response.send_message(file=discord.File(temp_file_path))
+                    except Exception as e:
+                        await interaction.response.send_message(
+                            content="Failed to generate or send the TXT report.",
+                            ephemeral=True
+                        )
+
+                download_button = discord.ui.Button(label="Download full report", style=discord.ButtonStyle.grey)
+                download_button.callback = download_report
+                view.add_item(download_button)
+
+                embed.set_footer(text="Data provided by BeeHive and Cloudflare")
+                await ctx.send(embed=embed, view=view)
             else:
-                error_embed = discord.Embed(title="Failed to query Cloudflare API", description=f"Status code: {response.status}", color=0xff4545)
+                error_message = data.get("errors", [{"message": "Unknown error"}])[0].get("message", "Unknown error")
+                error_embed = discord.Embed(title="Error", description=f"Error: {error_message}", color=0xff4545)
                 await ctx.send(embed=error_embed)
 
     @intel.command(name="ip")
@@ -1651,44 +1676,56 @@ class Cloudflare(commands.Cog):
             return
 
         async with self.session.get(url, headers=headers, params=params) as response:
-            if response.status == 200:
-                data = await response.json()
-                if data["success"]:
-                    result = data["result"][0]
-                    embed = discord.Embed(title=f"IP intelligence for {result['ip']}", color=0x2BBD8E)
-                    
-                    if "ip" in result:
-                        embed.add_field(name="IP", value=f"**`{result['ip']}`**", inline=False)
-                    if "belongs_to_ref" in result:
-                        belongs_to = result["belongs_to_ref"]
-                        if "description" in belongs_to:
-                            embed.add_field(name="Belongs To", value=f"**`{belongs_to['description']}`**", inline=False)
-                        if "country" in belongs_to:
-                            embed.add_field(name="Country", value=f"**`{belongs_to['country']}`**", inline=False)
-                        if "type" in belongs_to:
-                            embed.add_field(name="Type", value=f"**`{belongs_to['type'].upper()}`**", inline=True)
-                    if "ptr_lookup" in result and result["ptr_lookup"] and "ptr_domains" in result["ptr_lookup"] and result["ptr_lookup"]["ptr_domains"]:
-                        ptr_domains = ", ".join([f"**`{domain}`**" for domain in result["ptr_lookup"]["ptr_domains"]])
-                        embed.add_field(name="PTR Domains", value=ptr_domains, inline=False)
-                    if "risk_types" in result:
-                        risk_types = ", ".join([f"**`{risk['name']}`**" for risk in result["risk_types"]])
-                        embed.add_field(name="Risk Types", value=risk_types, inline=False)
-                    if "result_info" in data:
-                        result_info = data["result_info"]
-                        embed.add_field(name="Total Count", value=f"**`{result_info['total_count']}`**", inline=False)
-                        embed.add_field(name="Page", value=f"**`{result_info['page']}`**", inline=False)
-                        embed.add_field(name="Per Page", value=f"**`{result_info['per_page']}`**", inline=False)
-                        
-                    embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Green/globe.png")
-                    await ctx.send(embed=embed)
-                else:
-                    embed = discord.Embed(title="Error", description=f"Error: {data['errors']}", color=0xff4545)
-                    await ctx.send(embed=embed)
-            elif response.status == 400:
-                embed = discord.Embed(title="Bad Request", description="The server could not understand the request due to invalid syntax.", color=0xff4545)
+            data = await response.json()
+            if response.status == 200 and data.get("success", False):
+                result = data.get("result", [{}])[0]
+                embed = discord.Embed(title=f"IP intelligence for {result.get('ip', 'N/A')}", color=0xFF6633)
+                
+                ip_value = result.get('ip')
+                if ip_value:
+                    embed.add_field(name="IP", value=f"{ip_value}", inline=True)
+                
+                belongs_to = result.get("belongs_to_ref", {})
+                description = belongs_to.get('description')
+                if description:
+                    embed.add_field(name="Belongs to", value=f"{description}", inline=True)
+                
+                country = belongs_to.get('country')
+                if country:
+                    embed.add_field(name="Country", value=f"{country}", inline=True)
+                
+                type_value = belongs_to.get('type')
+                if type_value:
+                    embed.add_field(name="Type", value=f"{type_value.upper()}", inline=True)
+                
+                risk_types = result.get("risk_types", [])
+                if risk_types:
+                    risk_types_str = ", ".join([f"{risk.get('name', 'N/A')}" for risk in risk_types if risk.get('name')])
+                    if risk_types_str:
+                        embed.add_field(name="Risk types", value=risk_types_str, inline=True)
+                
+                if "ptr_lookup" in result and result["ptr_lookup"] and "ptr_domains" in result["ptr_lookup"] and result["ptr_lookup"]["ptr_domains"]:
+                    ptr_domains = "\n".join([f"- {domain}" for domain in result["ptr_lookup"]["ptr_domains"]])
+                    embed.add_field(name="PTR domains", value=ptr_domains, inline=True)
+                
+                result_info = data.get("result_info", {})
+                total_count = result_info.get('total_count')
+                if total_count:
+                    embed.add_field(name="Total count", value=f"{total_count}", inline=False)
+                
+                page = result_info.get('page')
+                if page:
+                    embed.add_field(name="Page", value=f"{page}", inline=False)
+                
+                per_page = result_info.get('per_page')
+                if per_page:
+                    embed.add_field(name="Per page", value=f"{per_page}", inline=False)
+                
+                embed.set_footer(text="IP intelligence provided by Cloudflare")
                 await ctx.send(embed=embed)
             else:
-                embed = discord.Embed(title="Failed to query Cloudflare API", description=f"Status code: {response.status}", color=0xff4545)
+                error_message = data.get("errors", [{"message": "Unknown error"}])[0].get("message", "Unknown error")
+                embed = discord.Embed(title="Error", description=f"Error: {error_message}", color=0xff4545)
                 await ctx.send(embed=embed)
 
     @intel.command(name="domainhistory")
@@ -1736,19 +1773,18 @@ class Cloudflare(commands.Cog):
                     current_page = 0
 
                     def create_embed(page):
-                        embed = discord.Embed(title=f"Domain history for {domain}", color=0x2BBD8E)
+                        embed = discord.Embed(title=f"Domain history for {domain}", color=0xFF6633)
                         if "domain" in result:
-                            embed.add_field(name="Domain", value=f"**`{result['domain']}`**", inline=False)
+                            embed.add_field(name="Domain", value=f"{result['domain']}", inline=True)
                         for categorization in page:
-                            categories = ", ".join([f"**`{category['name']}`**" for category in categorization["categories"]])
+                            categories = ", ".join([f"- {category['name']}\n" for category in categorization["categories"]])
                             embed.add_field(name="Categories", value=categories, inline=True)
                             if "start" in categorization:
-                                start_timestamp = discord.utils.format_dt(discord.utils.parse_time(categorization['start']), style='R')
-                                embed.add_field(name="Beginning", value=f"**{start_timestamp}**", inline=True)
+                                start_timestamp = discord.utils.format_dt(discord.utils.parse_time(categorization['start']), style='d')
+                                embed.add_field(name="Beginning", value=f"{start_timestamp}", inline=True)
                             if "end" in categorization:
-                                end_timestamp = discord.utils.format_dt(discord.utils.parse_time(categorization['end']), style='R')
-                                embed.add_field(name="Ending", value=f"**{end_timestamp}**", inline=True)
-                        embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Green/globe.png")
+                                end_timestamp = discord.utils.format_dt(discord.utils.parse_time(categorization['end']), style='d')
+                                embed.add_field(name="Ending", value=f"{end_timestamp}", inline=True)
                         return embed
 
                     message = await ctx.send(embed=create_embed(pages[current_page]))
@@ -1826,20 +1862,21 @@ class Cloudflare(commands.Cog):
                 data = await response.json()
                 if data["success"]:
                     result = data["result"]
-                    embed = discord.Embed(title=f"ASN intelligence for {asn}", color=0x2BBD8E)
+                    embed = discord.Embed(title=f"Intelligence for ASN#{asn}", color=0xFF6633)
                     
                     if "asn" in result:
-                        embed.add_field(name="ASN", value=f"**`{result['asn']}`**", inline=False)
+                        embed.add_field(name="ASN Number", value=f"{result['asn']}", inline=True)
                     if "description" in result:
-                        embed.add_field(name="Description", value=f"**`{result['description']}`**", inline=False)
+                        owner_query = result['description'].replace(' ', '+')
+                        google_search_url = f"https://www.google.com/search?q={owner_query}"
+                        embed.add_field(name="Owner", value=f"[{result['description']}]({google_search_url})", inline=True)
                     if "country" in result:
-                        embed.add_field(name="Country", value=f"**`{result['country']}`**", inline=False)
+                        embed.add_field(name="Region", value=f":flag_{result['country'].lower()}: {result['country']}", inline=True)
                     if "type" in result:
-                        embed.add_field(name="Type", value=f"**`{result['type']}`**", inline=False)
+                        embed.add_field(name="Type", value=f"{result['type'].capitalize()}", inline=True)
                     if "risk_score" in result:
-                        embed.add_field(name="Risk Score", value=f"**`{result['risk_score']}`**", inline=False)
-                    
-                    embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/White/globe.png")
+                        embed.add_field(name="Risk score", value=f"{result['risk_score']}", inline=True)
+                    embed.set_footer(text="ASN intelligence provided by Cloudflare")
                     await ctx.send(embed=embed)
                 else:
                     embed = discord.Embed(title="Error", description=f"Error: {data['errors']}", color=0xff4545)
@@ -1886,10 +1923,8 @@ class Cloudflare(commands.Cog):
                     if subnets:
                         pages = [subnets[i:i + 10] for i in range(0, len(subnets), 10)]
                         current_page = 0
-                        embed = discord.Embed(title=f"ASN subnets for {asn}", color=0x2BBD8E)
-                        embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/White/globe.png")
-                        for subnet in pages[current_page]:
-                            embed.add_field(name="Subnet", value=f"**`{subnet}`**", inline=False)
+                        embed = discord.Embed(title=f"Subnets for ASN#{asn}", color=0xFF6633)
+                        embed.add_field(name="Subnets", value="\n".join([f"- {subnet}" for subnet in pages[current_page]]), inline=False)
                         message = await ctx.send(embed=embed)
 
                         if len(pages) > 1:
@@ -1928,8 +1963,7 @@ class Cloudflare(commands.Cog):
                                     await message.clear_reactions()
                                     break
                     else:
-                        embed = discord.Embed(title=f"ASN subnets for {asn}", color=0x2BBD8E)
-                        embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/White/globe.png")
+                        embed = discord.Embed(title=f"Subnets for ASN#{asn}", color=0xFF6633)
                         embed.add_field(name="Subnets", value="No subnets found for this ASN.", inline=False)
                         await ctx.send(embed=embed)
                 else:
@@ -1944,9 +1978,10 @@ class Cloudflare(commands.Cog):
    
     @commands.group()
     async def urlscanner(self, ctx):
-        """With Cloudflare’s URL Scanner, you have the ability to investigate the details of a domain, IP, URL, or ASN. Cloudflare’s URL Scanner is available in the Security Center of the Cloudflare dashboard, Cloudflare Radar and the Cloudflare API.
-         
-         Learn more at https://developers.cloudflare.com/radar/investigate/url-scanner/
+        """
+        Use the Cloudflare API to scan websites for threats via Discord.
+
+        Learn more at https://developers.cloudflare.com/radar/investigate/url-scanner/
         """
 
     @commands.admin_or_permissions() 
@@ -2001,7 +2036,7 @@ class Cloudflare(commands.Cog):
                 current_page = discord.Embed(
                     title="URL Scan Results",
                     description=f"Search results for query: **`{query}`**",
-                    color=0x2BBD8E
+                    color=0xFF6633
                 )
                 total_size = len(current_page.description)
                 for result in results:
@@ -2114,7 +2149,7 @@ class Cloudflare(commands.Cog):
                 embed = discord.Embed(
                     title="URL Scan Started",
                     description=f"Scan started successfully.",
-                    color=0x2BBD8E
+                    color=0xFF6633
                 )
                 embed.add_field(name="UUID", value=f"**`{result.get('uuid', 'Unknown')}`**", inline=True)
                 embed.add_field(name="Visibility", value=f"**`{result.get('visibility', 'Unknown')}`**", inline=True)
@@ -2174,7 +2209,7 @@ class Cloudflare(commands.Cog):
                     await ctx.send(embed=discord.Embed(
                         title="No Data",
                         description="No relevant data found in the scan result.",
-                        color=0xff4545
+                        color=0xFF6633
                     ))
                     return
 
@@ -2374,8 +2409,8 @@ class Cloudflare(commands.Cog):
                     return
 
                 scan_id = data["result"]["uuid"]
-                embed = discord.Embed(title="Scanning URL", description=f"### Your scan ID is\n```{scan_id}```\nThe scan may take a few moments to complete, please wait...", color=0x2BBD8E)
-                embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Green/link.png")
+                embed = discord.Embed(title="Cloudflare is scanning your URL", description=f"This scan may take a few moments to complete, please wait patiently.", color=0xFF6633)
+                embed.set_footer(text=f"{scan_id}")
                 await ctx.send(embed=embed)
                 await ctx.typing()
 
@@ -2416,26 +2451,30 @@ class Cloudflare(commands.Cog):
 
                         if malicious:
                             embed = discord.Embed(
-                                title="Scan completed",
-                                description=f"A URL safety scan finished for Scan ID\n```{scan_id}```",
+                                title="Cloudflare detected a threat",
+                                description=f"A URL scan has completed and Cloudflare has detected one or more threats",
                                 color=0xff4545
                             )
-                            embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Red/bug.png")
+                            embed.set_footer(text=f"{scan_id}")
                         else:
                             embed = discord.Embed(
-                                title="Scan completed",
-                                description=f"A URL safety scan finished for Scan ID\n```{scan_id}```",
+                                title="Cloudflare detected no threats",
+                                description=f"A URL scan has finished with no detections to report.",
                                 color=0x2BBD8E
                             )
-                            embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Green/shield-checkmark.png")
+                            embed.set_footer(text=f"{scan_id}")
 
-                        verdict = "Malicious" if malicious else "Safe"
-                        embed.add_field(name="Verdict", value=f"**`{verdict}`**", inline=False)
                         if categories:
-                            embed.add_field(name="Categories", value=f"**`{categories}`**", inline=False)
+                            embed.add_field(name="Categories", value=f"{categories}", inline=False)
                         if phishing:
-                            embed.add_field(name="Phishing", value=f"**`{phishing}`**", inline=False)
-                        await ctx.send(embed=embed)
+                            embed.add_field(name="Phishing", value=f"{phishing}", inline=False)
+
+                        # Add a URL button to view the report
+                        view = discord.ui.View()
+                        report_url = f"https://radar.cloudflare.com/scan/{scan_id}"
+                        report_button = discord.ui.Button(label="View on Cloudflare Radar", url=report_url, style=discord.ButtonStyle.link)
+                        view.add_item(report_button)
+                        await ctx.send(embed=embed, view=view)
                         return
 
             except Exception as e:
@@ -2459,7 +2498,6 @@ class Cloudflare(commands.Cog):
             description=f"Automatic URL scans utilizing Cloudflare threat intelligence have been **{status}**.",
             colour=0xffd966,
         )
-        embed.set_thumbnail(url="https://www.beehive.systems/hubfs/Icon%20Packs/Yellow/notifications.png")
         await ctx.send(embed=embed)
         
     @commands.Cog.listener()
@@ -2506,7 +2544,7 @@ class Cloudflare(commands.Cog):
                     if not scan_id:
                         continue
 
-                    await asyncio.sleep(60)
+                    await asyncio.sleep(120)
 
                     scan_result_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/urlscanner/scan/{scan_id}"
                     async with self.session.get(scan_result_url, headers=headers) as scan_response:
@@ -2521,9 +2559,9 @@ class Cloudflare(commands.Cog):
                         if malicious:
                             await message.delete()
                             embed = discord.Embed(
-                                title="Malicious URL Detected",
-                                description=f"A message containing a malicious URL was removed.",
-                                color=0xff4545
+                                title="Cloudflare detected a threat!",
+                                description=f"Cloudflare detected a threat in a message sent in this channel and removed it to safeguard the community.",
+                                color=0xFF6633
                             )
                             await message.channel.send(embed=embed)
                             return
