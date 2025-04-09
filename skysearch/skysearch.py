@@ -1374,7 +1374,8 @@ class Skysearch(commands.Cog):
         """Command to set the API key."""
         await self.config.airplanesliveapi.set(api_key)  # Change the API key setting here
         await ctx.send("API key has been set successfully.")
-
+        
+        
     @commands.command(name='checkheaders', help='Check if the API key is used in headers.')
     async def check_headers(self, ctx):
         headers = await self._get_headers()
