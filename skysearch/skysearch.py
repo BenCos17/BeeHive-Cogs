@@ -1382,3 +1382,11 @@ class Skysearch(commands.Cog):
             await ctx.send(f"Headers are using the API key: {headers}")
         else:
             await ctx.send("No API key found in headers.")
+
+    @commands.command(name='showapikey', help='Show the stored API key.')
+    async def show_api_key(self, ctx):
+        api_key = await self.config.airplanesliveapi()
+        if api_key:
+            await ctx.send(f"Stored API key: {api_key}")
+        else:
+            await ctx.send("No API key is currently set.")
