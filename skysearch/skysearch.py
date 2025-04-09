@@ -25,6 +25,7 @@ class Skysearch(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=492089091320446976)  
+        self.config.register_global(api_key=None)  # Register the API key in the config
         self.api_url = "https://api.airplanes.live/v2"
         self.max_requests_per_user = 10
         self.EMBED_COLOR = discord.Color(0xfffffe)
@@ -43,11 +44,20 @@ class Skysearch(commands.Cog):
         if hasattr(self, '_http_client'):
             await self._http_client.close()
 
+    async def _get_headers(self):
+        """Return headers with API key for requests, if available."""
+        headers = {}
+        api_key = await self.config.api_key()
+        if api_key:
+            headers['Authorization'] = f'Bearer {api_key}'
+        return headers
+
     async def _make_request(self, url):
         if not hasattr(self, '_http_client'):
             self._http_client = aiohttp.ClientSession()
         try:
-            async with self._http_client.get(url) as response:
+            headers = await self._get_headers()  # Get headers with API key if available
+            async with self._http_client.get(url, headers=headers) as response:
                 response.raise_for_status()
                 return await response.json()
         except aiohttp.ClientError as e:
@@ -1357,3 +1367,10 @@ class Skysearch(commands.Cog):
             self.check_emergency_squawks.cancel()
         except Exception as e:
             print(f"Error unloading cog: {e}")
+
+    @commands.admin_or_permissions(manage_guild=True)
+    @commands.command(name='setapikey', help='Set the API key for Skysearch.')
+    async def set_api_key(self, ctx, api_key: str):
+        """Command to set the API key."""
+        await self.config.api_key.set(api_key)
+        await ctx.send("API key has been set successfully.")
