@@ -1368,7 +1368,7 @@ class Skysearch(commands.Cog):
         except Exception as e:
             print(f"Error unloading cog: {e}")
 
-    @commands.admin_or_permissions(manage_guild=True)
+    @commands.is_owner()
     @commands.command(name='setapikey', help='Set the API key for Skysearch.')
     async def set_api_key(self, ctx, api_key: str):
         """Command to set the API key."""
